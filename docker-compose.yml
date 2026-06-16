@@ -1,11 +1,10 @@
-# Production-style stack: everything runs as a container.
-#   docker compose up --build
+# Production stack — Next.js app behind Caddy (auto-HTTPS), Postgres, Adminer.
+#   docker compose up -d --build
 #
-# Services:
-#   db       -> Postgres 16 (schema + seed auto-loaded from ./db/init)
-#   app      -> Next.js production server (standalone build)
-#   adminer  -> lightweight web DB admin at http://localhost:8080
-#   mailhog  -> catches outgoing email; inbox UI at http://localhost:8025
+# Public surface is ONLY Caddy (80/443). app + db are internal to the Docker
+# network; Adminer is bound to localhost (reach it via an SSH tunnel).
+#
+# Requires in .env: DOMAIN, ACME_EMAIL, POSTGRES_*, SMTP_*, ADMIN_PASSWORD.
 
 services:
   db:
@@ -15,8 +14,6 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
       # Scripts here run once on first init, in filename order.
@@ -34,36 +31,42 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+      NEXT_PUBLIC_SITE_URL: https://${DOMAIN}
       NODE_ENV: production
-      SMTP_HOST: ${SMTP_HOST:-mailhog}
-      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_SECURE: ${SMTP_SECURE:-false}
-      MAIL_FROM: ${MAIL_FROM:-"The Adventure Mafia <rides@theadventuremafia.in>"}
-      TEAM_EMAIL: ${TEAM_EMAIL:-team@theadventuremafia.in}
+      MAIL_FROM: ${MAIL_FROM:-}
+      TEAM_EMAIL: ${TEAM_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
-    ports:
-      - "3000:3000"
     depends_on:
       db:
         condition: service_healthy
-      mailhog:
-        condition: service_started
 
-  mailhog:
-    image: mailhog/mailhog:latest
+  caddy:
+    image: caddy:2-alpine
     restart: unless-stopped
     ports:
-      - "1025:1025" # SMTP
-      - "8025:8025" # web inbox
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
 
   adminer:
     image: adminer:4
     restart: unless-stopped
+    # localhost-only: reach via SSH tunnel  ->  ssh -L 8080:localhost:8080 ...
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     environment:
       ADMINER_DEFAULT_SERVER: db
     depends_on:
@@ -71,3 +74,5 @@ services:
 
 volumes:
   db_data:
+  caddy_data:
+  caddy_config:
