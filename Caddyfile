@@ -1,0 +1,22 @@
+# Caddy reverse proxy — terminates TLS (auto Let's Encrypt) and forwards to the
+# Next.js app container. DOMAIN and ACME_EMAIL come from the environment.
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy app:3000
+
+	# Sensible security headers.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+}
+
+# Redirect the bare apex/www variants to the canonical host if you set DOMAIN
+# to "example.com". To also serve www, change the site line above to:
+#   {$DOMAIN}, www.{$DOMAIN}

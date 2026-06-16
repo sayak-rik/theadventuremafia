@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------ */
+/* Brand tokens — "blend": logo's dark navy + adventure green core,    */
+/* with gold reserved as a premium highlight accent.                   */
+/* ------------------------------------------------------------------ */
+@theme {
+  --color-navy: #0e1a24;
+  --color-navy-800: #122332;
+  --color-navy-700: #1b3242;
+
+  --color-green: #5bb02e;
+  --color-green-600: #4d9a26;
+  --color-green-300: #8fd45f;
+
+  --color-gold: #c69c6d;
+  --color-gold-300: #ddc09a;
+
+  --color-cream: #f5f3e8;
+  --color-sand: #ece8d8;
+
+  --font-serif: var(--font-playfair), Georgia, serif;
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+
+  --shadow-luxe: 0 20px 60px -20px rgba(14, 26, 36, 0.45);
+}
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-cream);
+  color: var(--color-navy);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Visible focus ring for keyboard users (accessibility / WCAG AA). */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid var(--color-green);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+::selection {
+  background: var(--color-green);
+  color: white;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
