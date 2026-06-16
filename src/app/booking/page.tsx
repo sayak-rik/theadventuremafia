@@ -5,6 +5,7 @@ import { SectionHeading } from "@/components/SectionHeading";
 
 export const metadata: Metadata = {
   title: "Book the Expedition",
+  alternates: { canonical: "/booking" },
   description:
     "Reserve your seat on the Untouched West Sikkim Expedition. Choose a Sunday departure (Sep–May), your Royal Enfield and riding option.",
 };

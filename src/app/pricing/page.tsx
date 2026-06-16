@@ -7,6 +7,7 @@ import { INCLUSIONS, EXCLUSIONS } from "@/data/inclusions";
 
 export const metadata: Metadata = {
   title: "Pricing & Bikes",
+  alternates: { canonical: "/pricing" },
   description:
     "Choose from five Royal Enfield models for the West Sikkim expedition. Transparent India and international (USD) pricing, plus full inclusions and exclusions.",
 };

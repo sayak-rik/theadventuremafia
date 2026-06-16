@@ -5,6 +5,7 @@ import { SITE } from "@/data/site";
 
 export const metadata: Metadata = {
   title: "Contact",
+  alternates: { canonical: "/contact" },
   description: "Questions about the West Sikkim Expedition? Reach The Adventure Mafia crew — we reply within a working day.",
 };
 

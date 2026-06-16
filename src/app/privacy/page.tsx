@@ -4,6 +4,7 @@ import { SITE } from "@/data/site";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
+  alternates: { canonical: "/privacy" },
   description: "How The Adventure Mafia collects, uses and protects your personal data.",
 };
 

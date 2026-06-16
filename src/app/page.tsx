@@ -5,6 +5,11 @@ import { SectionHeading } from "@/components/SectionHeading";
 import { RouteMap } from "@/components/RouteMap";
 import { Marquee } from "@/components/Marquee";
 import { TestimonialCard } from "@/components/TestimonialCard";
+import { FaqSection } from "@/components/FaqSection";
+import { JsonLd } from "@/components/JsonLd";
+import { touristTripLd, faqLd } from "@/lib/seo";
+import { FAQS } from "@/data/faq";
+import { ROUTE_STOPS } from "@/data/itinerary";
 import { getTestimonials } from "@/lib/data";
 
 const FEATURES = [
@@ -28,8 +33,23 @@ const FEATURES = [
 export default async function HomePage() {
   const testimonials = await getTestimonials();
 
+  // Aggregate rating from the published testimonials, for rich-result stars.
+  const ratingCount = testimonials.length;
+  const ratingValue = ratingCount
+    ? (testimonials.reduce((s, t) => s + t.rating, 0) / ratingCount).toFixed(1)
+    : undefined;
+
   return (
     <>
+      <JsonLd
+        data={[
+          touristTripLd({
+            stops: ROUTE_STOPS,
+            rating: ratingValue ? { value: ratingValue, count: ratingCount } : undefined,
+          }),
+          faqLd(FAQS),
+        ]}
+      />
       <Hero />
 
       {/* Overview */}
@@ -101,6 +121,9 @@ export default async function HomePage() {
           </Link>
         </div>
       </section>
+
+      {/* FAQ */}
+      <FaqSection />
 
       {/* CTA band */}
       <section className="bg-gradient-to-r from-green-600 to-green">

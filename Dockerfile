@@ -14,6 +14,10 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+# NEXT_PUBLIC_* is inlined at build time — bake the real public URL so canonical
+# tags, OG images and JSON-LD point at the production domain (not localhost).
+ARG NEXT_PUBLIC_SITE_URL=https://theadventuremafia.com
+ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 RUN npm run build
 
 # ---- Runner (production) ----

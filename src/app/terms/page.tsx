@@ -4,6 +4,7 @@ import { SITE } from "@/data/site";
 
 export const metadata: Metadata = {
   title: "Terms & Conditions",
+  alternates: { canonical: "/terms" },
   description: "Booking, cancellation, permit and liability terms for The Adventure Mafia's West Sikkim Expedition.",
 };
 

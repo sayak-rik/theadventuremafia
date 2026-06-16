@@ -11,6 +11,7 @@ const waLink = `https://wa.me/${SITE.whatsapp.replace(/[^\d]/g, "")}`;
 
 export const metadata: Metadata = {
   title: "Itinerary",
+  alternates: { canonical: "/itinerary" },
   description:
     "Day-by-day plan for the 7-day Untouched West Sikkim Expedition: NJP to Pelling, Dentam, Yuksom, Ravangla, Gangtok, Lachen, Gurudongmar Lake and Lachung — with distances and drive times.",
 };

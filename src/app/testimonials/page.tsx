@@ -6,6 +6,7 @@ import { TestimonialColumns } from "@/components/TestimonialColumns";
 
 export const metadata: Metadata = {
   title: "Testimonials",
+  alternates: { canonical: "/testimonials" },
   description:
     "Stories from riders who took the Untouched West Sikkim Expedition — Kanchenjunga views, Gurudongmar Lake and seamless luxury support.",
 };
