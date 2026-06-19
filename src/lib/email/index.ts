@@ -30,11 +30,15 @@ function getTransport(): Transporter | null {
   const port = Number(process.env.SMTP_PORT ?? 587);
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
+  // Mirror the proven Python flow: implicit TLS only when SMTP_SECURE=true
+  // (port 465); otherwise force STARTTLS *before* AUTH (fixes GoDaddy 535).
+  const secure = process.env.SMTP_SECURE === "true";
 
   globalForMail.mailTransport = nodemailer.createTransport({
     host,
     port,
-    secure: process.env.SMTP_SECURE === "true" || port === 465,
+    secure,
+    requireTLS: !secure,
     auth: user ? { user, pass } : undefined,
   });
   return globalForMail.mailTransport;
