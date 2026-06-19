@@ -91,6 +91,7 @@ CREATE TABLE IF NOT EXISTS referral_users (
   is_active             BOOLEAN     NOT NULL DEFAULT TRUE,
   email_verified        BOOLEAN     NOT NULL DEFAULT FALSE,
   signup_credited       BOOLEAN     NOT NULL DEFAULT FALSE,
+  password_hash         TEXT,
   otp_code              TEXT,
   otp_expires_at        TIMESTAMPTZ,
   created_at            TIMESTAMPTZ NOT NULL DEFAULT now()

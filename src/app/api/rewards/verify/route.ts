@@ -35,13 +35,14 @@ export async function POST(req: Request) {
     await creditAdvCash(user.id, SIGNUP_BONUS, "signup", { note: "Signup bonus" });
   }
 
-  const out = await pool.query(`SELECT referral_code, adv_cash, referral_earned FROM referral_users WHERE id = $1`, [user.id]);
+  const out = await pool.query(`SELECT referral_code, adv_cash, referral_earned, password_hash FROM referral_users WHERE id = $1`, [user.id]);
   const r = out.rows[0];
   const response = NextResponse.json({
     ok: true,
     referralCode: r.referral_code,
     advCash: r.adv_cash,
     referralEarned: r.referral_earned,
+    hasPassword: Boolean(r.password_hash),
   });
   response.cookies.set(REWARDS_COOKIE, sessionValue(user.id), {
     httpOnly: true,

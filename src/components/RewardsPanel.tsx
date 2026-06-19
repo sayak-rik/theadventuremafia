@@ -10,9 +10,11 @@ const field =
 type Me = { email: string; referralCode: string; advCash: number; referralEarned: number };
 
 export function RewardsPanel() {
-  const [stage, setStage] = useState<"loading" | "signup" | "otp" | "done">("loading");
+  const [stage, setStage] = useState<"loading" | "signup" | "otp" | "setpassword" | "signin" | "done">("loading");
   const [form, setForm] = useState({ email: "", phone: "", name: "" });
   const [otp, setOtp] = useState("");
+  const [pwd, setPwd] = useState("");
+  const [pwd2, setPwd2] = useState("");
   const [me, setMe] = useState<Me | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -45,6 +47,32 @@ export function RewardsPanel() {
       const res = await fetch("/api/rewards/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: form.email, otp }) });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error ?? "Invalid code.");
+      setMe({ email: form.email, referralCode: d.referralCode, advCash: d.advCash, referralEarned: d.referralEarned });
+      // First time (no password yet) → ask them to set one; otherwise done.
+      setStage(d.hasPassword ? "done" : "setpassword");
+    } catch (err) { setError(err instanceof Error ? err.message : "Failed."); }
+    finally { setBusy(false); }
+  }
+
+  async function submitPassword(e: React.FormEvent) {
+    e.preventDefault(); setBusy(true); setError("");
+    if (pwd.length < 6) { setError("Password must be at least 6 characters."); setBusy(false); return; }
+    if (pwd !== pwd2) { setError("Passwords don't match."); setBusy(false); return; }
+    try {
+      const res = await fetch("/api/rewards/set-password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: pwd }) });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error ?? "Failed.");
+      setStage("done");
+    } catch (err) { setError(err instanceof Error ? err.message : "Failed."); }
+    finally { setBusy(false); }
+  }
+
+  async function submitSignin(e: React.FormEvent) {
+    e.preventDefault(); setBusy(true); setError("");
+    try {
+      const res = await fetch("/api/rewards/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: form.email, password: pwd }) });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error ?? "Sign in failed.");
       setMe({ email: form.email, referralCode: d.referralCode, advCash: d.advCash, referralEarned: d.referralEarned });
       setStage("done");
     } catch (err) { setError(err instanceof Error ? err.message : "Failed."); }
@@ -113,6 +141,48 @@ export function RewardsPanel() {
           {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
           <button type="submit" disabled={busy} className="w-full rounded-full bg-green px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-green-600 disabled:opacity-50">
             {busy ? "Sending code…" : "Sign up & get adv cash"}
+          </button>
+          <button type="button" onClick={() => { setError(""); setPwd(""); setStage("signin"); }} className="w-full text-sm text-navy/50 hover:text-navy">
+            Already have an account? <span className="font-semibold text-green-600">Sign in</span>
+          </button>
+        </form>
+      )}
+
+      {stage === "signin" && (
+        <form onSubmit={submitSignin} className="space-y-4">
+          <p className="text-sm font-semibold text-navy">Welcome back — sign in to your rewards account.</p>
+          <div>
+            <label htmlFor="s-email" className="mb-1 block text-sm font-semibold text-navy">Email</label>
+            <input id="s-email" type="email" required value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} className={field} placeholder="you@example.com" />
+          </div>
+          <div>
+            <label htmlFor="s-pwd" className="mb-1 block text-sm font-semibold text-navy">Password</label>
+            <input id="s-pwd" type="password" required value={pwd} onChange={(e) => setPwd(e.target.value)} className={field} placeholder="••••••••" />
+          </div>
+          {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
+          <button type="submit" disabled={busy} className="w-full rounded-full bg-green px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-green-600 disabled:opacity-50">
+            {busy ? "Signing in…" : "Sign in"}
+          </button>
+          <button type="button" onClick={() => { setError(""); setStage("signup"); }} className="w-full text-sm text-navy/50 hover:text-navy">← New here? Sign up</button>
+        </form>
+      )}
+
+      {stage === "setpassword" && (
+        <form onSubmit={submitPassword} className="space-y-4">
+          <p className="rounded-xl bg-green/10 px-4 py-3 text-sm font-semibold text-green-700">
+            ✓ Email verified — {formatINR(SIGNUP_BONUS)} adv cash added! Set a password so you can sign back in.
+          </p>
+          <div>
+            <label htmlFor="p-1" className="mb-1 block text-sm font-semibold text-navy">Create a password</label>
+            <input id="p-1" type="password" required value={pwd} onChange={(e) => setPwd(e.target.value)} className={field} placeholder="At least 6 characters" />
+          </div>
+          <div>
+            <label htmlFor="p-2" className="mb-1 block text-sm font-semibold text-navy">Confirm password</label>
+            <input id="p-2" type="password" required value={pwd2} onChange={(e) => setPwd2(e.target.value)} className={field} placeholder="Re-enter password" />
+          </div>
+          {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
+          <button type="submit" disabled={busy} className="w-full rounded-full bg-green px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-green-600 disabled:opacity-50">
+            {busy ? "Saving…" : "Save password & continue"}
           </button>
         </form>
       )}
