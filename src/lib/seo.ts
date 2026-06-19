@@ -32,7 +32,7 @@ export function websiteLd() {
     "@id": `${SITE.url}/#website`,
     name: SITE.name,
     url: SITE.url,
-    publisher: { "@id": `${SITE.url}/#organization` },
+    publisher: { "@type": "Organization", name: SITE.name, url: SITE.url },
   };
 }
 
@@ -49,7 +49,13 @@ export function touristTripLd(opts?: {
     url: abs("/itinerary"),
     image: abs("/og.png"),
     touristType: ["Motorcycle touring", "Adventure travel"],
-    provider: { "@id": `${SITE.url}/#organization` },
+    provider: {
+      "@type": "TravelAgency",
+      name: SITE.name,
+      url: SITE.url,
+      telephone: SITE.phone,
+      email: SITE.email,
+    },
     offers: {
       "@type": "AggregateOffer",
       priceCurrency: "INR",
