@@ -47,7 +47,11 @@ export function BookingForm({
   const [message, setMessage] = useState("");
 
   const [referral, setReferral] = useState(initialRef);
-  const [referralState, setReferralState] = useState<"none" | "checking" | "valid" | "invalid">("none");
+  const [referralState, setReferralState] = useState<"none" | "checking" | "valid" | "invalid" | "self">("none");
+
+  // Signed-in reward user (for spending their own adv cash + blocking self-referral).
+  const [rewardUser, setRewardUser] = useState<{ advCash: number; referralCode: string } | null>(null);
+  const [applyWallet, setApplyWallet] = useState(true);
 
   const [status, setStatus] = useState<"idle" | "submitting" | "done" | "error">("idle");
   const [error, setError] = useState("");
@@ -62,12 +66,23 @@ export function BookingForm({
 
   // Referral discount: adv cash is in INR, so it only reduces INR (India) bookings.
   const discount = referralState === "valid" && !intl ? Math.min(REFERRAL_DISCOUNT, totalAmount) : 0;
-  const payable = totalAmount - discount;
+  // The signed-in user's own balance, applied (INR only) if the box is ticked.
+  const walletAvail = rewardUser?.advCash ?? 0;
+  const walletApplied = applyWallet && !intl ? Math.min(walletAvail, totalAmount - discount) : 0;
+  const payable = totalAmount - discount - walletApplied;
+
+  // Load the signed-in reward user's balance (if any).
+  useEffect(() => {
+    fetch("/api/rewards/me").then((r) => r.json()).then((d) => {
+      if (d.user) setRewardUser({ advCash: d.user.advCash, referralCode: d.user.referralCode });
+    }).catch(() => {});
+  }, []);
 
   // Validate the referral code (debounced) whenever it changes.
   useEffect(() => {
-    const code = referral.trim();
+    const code = referral.trim().toUpperCase();
     if (!code) { setReferralState("none"); return; }
+    if (rewardUser && code === rewardUser.referralCode.toUpperCase()) { setReferralState("self"); return; }
     setReferralState("checking");
     const t = setTimeout(() => {
       fetch(`/api/rewards/validate?code=${encodeURIComponent(code)}`)
@@ -76,7 +91,7 @@ export function BookingForm({
         .catch(() => setReferralState("invalid"));
     }, 450);
     return () => clearTimeout(t);
-  }, [referral]);
+  }, [referral, rewardUser]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -97,7 +112,8 @@ export function BookingForm({
           riderType: option === "bike" ? rider : null,
           seats: option === "bike" ? (rider === "double" ? 2 : 1) : cabSeats,
           message,
-          referralCode: referral.trim() || undefined,
+          referralCode: referralState === "self" ? undefined : referral.trim() || undefined,
+          applyAdvCash: applyWallet && walletApplied > 0,
         }),
       });
       const data = await res.json();
@@ -273,8 +289,22 @@ export function BookingForm({
           {referralState === "invalid" && (
             <p className="mt-1 text-xs text-red-600">That code isn't valid or is inactive.</p>
           )}
+          {referralState === "self" && (
+            <p className="mt-1 text-xs text-red-600">You can't use your own referral code on your own booking.</p>
+          )}
           {referralState === "checking" && <p className="mt-1 text-xs text-navy/40">Checking…</p>}
         </div>
+
+        {/* Signed-in reward users: spend their own adv cash */}
+        {rewardUser && walletAvail > 0 && !intl && (
+          <label className="flex items-start gap-3 rounded-xl border border-green/30 bg-green/5 p-4">
+            <input type="checkbox" checked={applyWallet} onChange={(e) => setApplyWallet(e.target.checked)} className="mt-0.5 h-4 w-4 accent-green" />
+            <span className="text-sm text-navy/80">
+              <span className="font-semibold text-navy">Apply my adv cash</span> — you have {formatINR(walletAvail)} available.
+              {applyWallet && walletApplied > 0 && <span className="block text-green-600">{formatINR(walletApplied)} will be applied to this booking.</span>}
+            </span>
+          </label>
+        )}
 
         <div>
           <label htmlFor="message" className="mb-1 block text-sm font-semibold text-navy">Anything else? (optional)</label>
@@ -301,19 +331,22 @@ export function BookingForm({
               <div className="flex justify-between"><dt className="text-cream/70">Seats</dt><dd className="font-semibold">{cabSeats}</dd></div>
             )}
           </dl>
-          {discount > 0 && (
+          {(discount > 0 || walletApplied > 0) && (
             <div className="mt-4 space-y-1 border-t border-cream/15 pt-4 text-sm">
               <div className="flex justify-between"><dt className="text-cream/70">Subtotal</dt><dd>{formatMoney(totalAmount, fare.currency)}</dd></div>
-              <div className="flex justify-between text-green-300"><dt>Adv cash</dt><dd>– {formatMoney(discount, fare.currency)}</dd></div>
+              {discount > 0 && <div className="flex justify-between text-green-300"><dt>Referral adv cash</dt><dd>– {formatMoney(discount, fare.currency)}</dd></div>}
+              {walletApplied > 0 && <div className="flex justify-between text-green-300"><dt>Your adv cash</dt><dd>– {formatMoney(walletApplied, fare.currency)}</dd></div>}
             </div>
           )}
-          <div className={`mt-4 flex items-baseline justify-between ${discount > 0 ? "" : "border-t border-cream/15 pt-4"}`}>
-            <span className="text-cream/70">{discount > 0 ? "You pay" : option === "cab" && cabSeats > 1 ? "Total" : "From"}</span>
+          {(() => { const hasDisc = discount > 0 || walletApplied > 0; return (
+          <div className={`mt-4 flex items-baseline justify-between ${hasDisc ? "" : "border-t border-cream/15 pt-4"}`}>
+            <span className="text-cream/70">{hasDisc ? "You pay" : option === "cab" && cabSeats > 1 ? "Total" : "From"}</span>
             <span className="font-serif text-2xl font-bold text-green-300">
               {formatMoney(payable, fare.currency)}
-              <span className="text-sm font-normal text-cream/60">{discount > 0 ? "" : option === "bike" ? " /rider" : cabSeats > 1 ? "" : " /seat"}</span>
+              <span className="text-sm font-normal text-cream/60">{hasDisc ? "" : option === "bike" ? " /rider" : cabSeats > 1 ? "" : " /seat"}</span>
             </span>
           </div>
+          ); })()}
           {intl && (
             <p className="mt-2 text-xs text-cream/50">Inner-line permit costs are extra.</p>
           )}

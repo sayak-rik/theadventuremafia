@@ -6,6 +6,7 @@ import { sendBookingEmails } from "@/lib/email";
 import { isValidDeparture } from "@/lib/dates";
 import { REFERRAL_DISCOUNT, normalizeCode } from "@/lib/rewards";
 import { findActiveByCode } from "@/lib/rewards-data";
+import { getRewardsUserId } from "@/lib/rewards-auth";
 
 type BookingPayload = {
   name?: string;
@@ -19,6 +20,7 @@ type BookingPayload = {
   seats?: number;
   message?: string;
   referralCode?: string;
+  applyAdvCash?: boolean;
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -68,6 +70,10 @@ export async function POST(req: Request) {
   const fare = fareFor(baseUnitINR, residence); // { amount, currency }
   const total = option === "cab" ? fare.amount * seats : fare.amount;
 
+  // The currently signed-in reward user (if any), used to block self-referral
+  // and to apply their own adv-cash balance.
+  const signedInUserId = await getRewardsUserId();
+
   // Referral: tag the referrer and (for INR bookings) apply the adv-cash discount.
   // adv cash is a rupee credit, so the discount only applies to INR pricing.
   let referredBy: number | null = null;
@@ -76,13 +82,21 @@ export async function POST(req: Request) {
   if (body.referralCode?.trim()) {
     const code = normalizeCode(body.referralCode);
     const referrer = await findActiveByCode(code);
-    // No self-referral (booking email must differ from the code owner's email).
-    if (referrer && referrer.email !== body.email!.trim().toLowerCase()) {
+    // No self-referral: not your own code (signed in) and not your own email.
+    const isSelf =
+      !referrer ||
+      referrer.id === signedInUserId ||
+      referrer.email === body.email!.trim().toLowerCase();
+    if (referrer && !isSelf) {
       referredBy = referrer.id;
       referralCode = referrer.referral_code;
       if (residence === "IN") advCashDiscount = Math.min(REFERRAL_DISCOUNT, total);
     }
   }
+
+  // Signed-in reward users can apply their own collected adv cash (INR only).
+  const rewardUserId: number | null = body.applyAdvCash && residence === "IN" ? signedInUserId : null;
+  let walletApplied = 0;
 
   const emailData = {
     name: body.name!.trim(),
@@ -96,7 +110,7 @@ export async function POST(req: Request) {
     residence,
     price: fare.amount, // per rider (bike) or per seat (cab), in `currency`
     currency: fare.currency,
-    advCashDiscount,
+    advCashDiscount, // updated below once wallet redemption is computed
     message: body.message?.trim() || undefined,
   };
 
@@ -172,6 +186,24 @@ export async function POST(req: Request) {
       ],
     );
 
+    // Apply the signed-in user's own adv cash (locked, never over-spending).
+    if (rewardUserId) {
+      const ures = await client.query<{ adv_cash: number }>(
+        `SELECT adv_cash FROM referral_users WHERE id = $1 FOR UPDATE`,
+        [rewardUserId],
+      );
+      const balance = ures.rows[0]?.adv_cash ?? 0;
+      walletApplied = Math.max(0, Math.min(balance, total - advCashDiscount));
+      if (walletApplied > 0) {
+        await client.query(`UPDATE referral_users SET adv_cash = adv_cash - $2 WHERE id = $1`, [rewardUserId, walletApplied]);
+        await client.query(
+          `INSERT INTO adv_cash_ledger (user_id, amount, reason, booking_id, note) VALUES ($1,$2,'redeemed',$3,$4)`,
+          [rewardUserId, -walletApplied, ins.rows[0].id, `Applied to booking #${ins.rows[0].id}`],
+        );
+        await client.query(`UPDATE bookings SET adv_cash_discount = adv_cash_discount + $2 WHERE id = $1`, [ins.rows[0].id, walletApplied]);
+      }
+    }
+
     // Reserve capacity: one motorbike per bike booking, or N cab seats.
     if (option === "bike") {
       await client.query(`UPDATE trip_dates SET bikes_booked = bikes_booked + 1 WHERE id = $1`, [trip.id]);
@@ -180,6 +212,7 @@ export async function POST(req: Request) {
     }
 
     await client.query("COMMIT");
+    emailData.advCashDiscount = advCashDiscount + walletApplied;
 
     // Fire confirmation + team notification. Failures are swallowed internally
     // so a saved booking never 500s just because email is down.
