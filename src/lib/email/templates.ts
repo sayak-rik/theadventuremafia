@@ -98,7 +98,8 @@ function bookingRows(d: BookingEmailData): string {
   const date = formatPretty(d.tripDate);
   const fmt = money(d);
   const permit = d.residence === "INTL" ? `${row("Permit", "Inner-line permit costs are extra")}` : "";
-  const total = d.option === "cab" ? d.price * d.seats : d.price;
+  // d.seats = people on the booking (2 for a two-up/pillion bike).
+  const total = d.price * d.seats;
   const discount = d.advCashDiscount ?? 0;
   const advRows = discount > 0
     ? `${row("Adv cash applied", `– ${money(d)(discount)}`)}${row("You pay", money(d)(Math.max(0, total - discount)))}`
@@ -108,15 +109,16 @@ function bookingRows(d: BookingEmailData): string {
       ${row("Riding option", "Shared cab seat")}
       ${row("Seats", String(d.seats))}
       ${row("Fare", `${fmt(d.price)} / seat`)}
-      ${row("Total", fmt(total))}
+      ${row("Total", `${fmt(total)} (${d.seats} × ${fmt(d.price)})`)}
       ${advRows}
       ${permit}`;
   }
   return `${row("Departure", `${date} (Sunday)`)}
     ${row("Riding option", "Ride a motorbike")}
     ${row("Motorcycle", d.bikeName ?? "Royal Enfield")}
-    ${row("Riders", d.rider === "double" ? "Two-up (double)" : "Solo (single)")}
+    ${row("Riders", d.rider === "double" ? "Two-up (rider + pillion)" : "Solo (single)")}
     ${row("Fare", `${fmt(d.price)} / rider`)}
+    ${row("Total", `${fmt(total)}${d.seats > 1 ? ` (${d.seats} × ${fmt(d.price)})` : ""}`)}
     ${advRows}
     ${permit}`;
 }

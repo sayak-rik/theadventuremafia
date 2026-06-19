@@ -62,14 +62,18 @@ export function BookingForm({
   // Base INR fare, then resolved into the viewer's currency.
   const baseUnitINR = option === "cab" ? SHARED_CAB_PRICE : bike ? priceFor(bike, rider) : 0;
   const fare = fareFor(baseUnitINR, residence); // { amount, currency }
-  const totalAmount = option === "cab" ? fare.amount * cabSeats : fare.amount;
+  // People on the booking: 2 for a two-up (pillion) bike, else riders/seats.
+  const persons = option === "cab" ? cabSeats : rider === "double" ? 2 : 1;
+  const totalAmount = fare.amount * persons;
 
-  // Referral discount: adv cash is in INR, so it only reduces INR (India) bookings.
-  const discount = referralState === "valid" && !intl ? Math.min(REFERRAL_DISCOUNT, totalAmount) : 0;
+  // Referral discount is per person, so it scales (e.g. doubles for a pillion).
+  const discount = referralState === "valid" && !intl ? Math.min(REFERRAL_DISCOUNT * persons, totalAmount) : 0;
   // The signed-in user's own balance, applied (INR only) if the box is ticked.
   const walletAvail = rewardUser?.advCash ?? 0;
   const walletApplied = applyWallet && !intl ? Math.min(walletAvail, totalAmount - discount) : 0;
   const payable = totalAmount - discount - walletApplied;
+  // Per-person price after the referral discount (for the "× 2" display).
+  const perPerson = fare.amount - (referralState === "valid" && !intl ? REFERRAL_DISCOUNT : 0);
 
   // Load the signed-in reward user's balance (if any).
   useEffect(() => {
@@ -338,15 +342,24 @@ export function BookingForm({
               {walletApplied > 0 && <div className="flex justify-between text-green-300"><dt>Your adv cash</dt><dd>– {formatMoney(walletApplied, fare.currency)}</dd></div>}
             </div>
           )}
-          {(() => { const hasDisc = discount > 0 || walletApplied > 0; return (
-          <div className={`mt-4 flex items-baseline justify-between ${hasDisc ? "" : "border-t border-cream/15 pt-4"}`}>
-            <span className="text-cream/70">{hasDisc ? "You pay" : option === "cab" && cabSeats > 1 ? "Total" : "From"}</span>
-            <span className="font-serif text-2xl font-bold text-green-300">
-              {formatMoney(payable, fare.currency)}
-              <span className="text-sm font-normal text-cream/60">{hasDisc ? "" : option === "bike" ? " /rider" : cabSeats > 1 ? "" : " /seat"}</span>
-            </span>
-          </div>
-          ); })()}
+          {(() => {
+            const hasDisc = discount > 0 || walletApplied > 0;
+            // Show "₹X × 2" for a pillion/multi-seat booking (when no lump wallet applied).
+            const showMult = persons > 1 && walletApplied === 0;
+            return (
+              <div className={`mt-4 flex items-baseline justify-between ${hasDisc ? "" : "border-t border-cream/15 pt-4"}`}>
+                <span className="text-cream/70">{hasDisc ? "You pay" : "Total"}</span>
+                <span className="font-serif text-2xl font-bold text-green-300">
+                  {showMult ? (
+                    <>{formatMoney(perPerson, fare.currency)}<span className="text-sm font-normal text-cream/60"> × {persons}</span></>
+                  ) : (
+                    formatMoney(payable, fare.currency)
+                  )}
+                </span>
+              </div>
+            );
+          })()}
+          {persons > 1 && <p className="mt-1 text-right text-xs text-cream/50">Total {formatMoney(payable, fare.currency)} for {persons} {option === "cab" ? "seats" : "riders"}</p>}
           {intl && (
             <p className="mt-2 text-xs text-cream/50">Inner-line permit costs are extra.</p>
           )}

@@ -68,7 +68,8 @@ export async function POST(req: Request) {
   const residence: Residence = body.residence === "INTL" ? "INTL" : "IN";
   const baseUnitINR = option === "cab" ? SHARED_CAB_PRICE : bike ? priceFor(bike, rider) : 0;
   const fare = fareFor(baseUnitINR, residence); // { amount, currency }
-  const total = option === "cab" ? fare.amount * seats : fare.amount;
+  // `seats` = people on the booking (2 for a two-up/pillion bike). Charge per person.
+  const total = fare.amount * seats;
 
   // The currently signed-in reward user (if any), used to block self-referral
   // and to apply their own adv-cash balance.
@@ -90,7 +91,8 @@ export async function POST(req: Request) {
     if (referrer && !isSelf) {
       referredBy = referrer.id;
       referralCode = referrer.referral_code;
-      if (residence === "IN") advCashDiscount = Math.min(REFERRAL_DISCOUNT, total);
+      // Discount is per person, so a pillion booking gets it for both riders.
+      if (residence === "IN") advCashDiscount = Math.min(REFERRAL_DISCOUNT * seats, total);
     }
   }
 
