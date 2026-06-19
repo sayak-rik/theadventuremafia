@@ -15,6 +15,7 @@ import {
 import { REFERRAL_DISCOUNT, formatINR } from "@/lib/rewards";
 import { formatPretty } from "@/lib/dates";
 import { SundayCalendar } from "./SundayCalendar";
+import { CountryCodeSelect } from "./CountryCodeSelect";
 
 const field =
   "w-full rounded-xl border border-navy/15 bg-white px-4 py-3 text-navy outline-none transition focus:border-green";
@@ -36,6 +37,7 @@ export function BookingForm({
 }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [countryCode, setCountryCode] = useState("+91");
   const [phone, setPhone] = useState("");
   const [tripDate, setTripDate] = useState<string | null>(null);
 
@@ -108,7 +110,7 @@ export function BookingForm({
         body: JSON.stringify({
           name,
           email,
-          phone,
+          phone: `${countryCode} ${phone}`.trim(),
           tripDate,
           residence,
           option,
@@ -164,7 +166,10 @@ export function BookingForm({
           </div>
           <div>
             <label htmlFor="phone" className="mb-1 block text-sm font-semibold text-navy">Phone</label>
-            <input id="phone" required value={phone} onChange={(e) => setPhone(e.target.value)} className={field} placeholder="+91 98765 43210" />
+            <div className="flex gap-2">
+              <CountryCodeSelect value={countryCode} onChange={setCountryCode} />
+              <input id="phone" required inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^\d\s]/g, ""))} className={field} placeholder="98765 43210" />
+            </div>
           </div>
         </div>
 

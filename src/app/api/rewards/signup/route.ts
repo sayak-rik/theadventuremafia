@@ -14,6 +14,20 @@ export async function POST(req: Request) {
   const pool = getPool();
   if (!pool) return NextResponse.json({ error: "Service unavailable." }, { status: 503 });
 
+  // Block re-signup: a verified account already exists with this email OR phone.
+  const existing = await pool.query<{ email_verified: boolean }>(
+    `SELECT email_verified FROM referral_users
+       WHERE lower(email) = $1
+          OR regexp_replace(phone, '[^0-9]', '', 'g') = regexp_replace($2, '[^0-9]', '', 'g')`,
+    [email.trim().toLowerCase(), phone.trim()],
+  );
+  if (existing.rows.some((r) => r.email_verified)) {
+    return NextResponse.json(
+      { error: "An account with this email or phone already exists. Please sign in instead." },
+      { status: 409 },
+    );
+  }
+
   const otp = generateOtp();
   const expires = new Date(Date.now() + OTP_TTL_MIN * 60_000).toISOString();
 

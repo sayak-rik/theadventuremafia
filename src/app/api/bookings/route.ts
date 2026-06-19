@@ -164,6 +164,25 @@ export async function POST(req: Request) {
       );
     }
 
+    // One motorbike per rider, per Sunday — matched by email OR phone number.
+    if (option === "bike") {
+      const dup = await client.query(
+        `SELECT 1 FROM bookings
+           WHERE trip_id = $1 AND option = 'bike' AND status <> 'cancelled'
+             AND (lower(email) = lower($2)
+                  OR regexp_replace(phone, '[^0-9]', '', 'g') = regexp_replace($3, '[^0-9]', '', 'g'))
+           LIMIT 1`,
+        [trip.id, body.email!.trim(), body.phone!.trim()],
+      );
+      if (dup.rows.length) {
+        await client.query("ROLLBACK");
+        return NextResponse.json(
+          { error: "This email or phone number already has a motorbike booked for this departure — only one motorbike per rider, per Sunday." },
+          { status: 409 },
+        );
+      }
+    }
+
     const ins = await client.query<{ id: number }>(
       `INSERT INTO bookings
          (trip_id, option, bike_model_id, rider, residence, name, email, phone, trip_date, seats, message,
