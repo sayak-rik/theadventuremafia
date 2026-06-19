@@ -13,13 +13,14 @@ export const metadata: Metadata = {
 export default async function BookingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ bike?: string; option?: string; residence?: string }>;
+  searchParams: Promise<{ bike?: string; option?: string; residence?: string; ref?: string }>;
 }) {
   const bikes = await getBikeModels();
-  const { bike, option, residence } = await searchParams;
+  const { bike, option, residence, ref } = await searchParams;
   const initialBikeId = bike ? Number(bike) : undefined;
   const initialOption = option === "cab" ? "cab" : "bike";
   const initialResidence = residence === "intl" ? "INTL" : "IN";
+  const initialRef = ref?.trim() || "";
 
   return (
     <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
@@ -34,7 +35,7 @@ export default async function BookingPage({
         landslides or insufficient group size, you get a full refund.
       </div>
       <div className="mt-8">
-        <BookingForm bikes={bikes} initialBikeId={initialBikeId} initialOption={initialOption} initialResidence={initialResidence} />
+        <BookingForm bikes={bikes} initialBikeId={initialBikeId} initialOption={initialOption} initialResidence={initialResidence} initialRef={initialRef} />
       </div>
     </section>
   );

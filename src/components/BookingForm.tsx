@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import type { BikeModel } from "@/lib/data";
 import {
@@ -12,6 +12,7 @@ import {
   CAB_SEATS_PER_DEPARTURE,
   type Residence,
 } from "@/lib/pricing";
+import { REFERRAL_DISCOUNT, formatINR } from "@/lib/rewards";
 import { formatPretty } from "@/lib/dates";
 import { SundayCalendar } from "./SundayCalendar";
 
@@ -25,11 +26,13 @@ export function BookingForm({
   initialBikeId,
   initialOption = "bike",
   initialResidence = "IN",
+  initialRef = "",
 }: {
   bikes: BikeModel[];
   initialBikeId?: number;
   initialOption?: Option;
   initialResidence?: Residence;
+  initialRef?: string;
 }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -43,6 +46,9 @@ export function BookingForm({
   const [cabSeats, setCabSeats] = useState(1);
   const [message, setMessage] = useState("");
 
+  const [referral, setReferral] = useState(initialRef);
+  const [referralState, setReferralState] = useState<"none" | "checking" | "valid" | "invalid">("none");
+
   const [status, setStatus] = useState<"idle" | "submitting" | "done" | "error">("idle");
   const [error, setError] = useState("");
 
@@ -53,6 +59,24 @@ export function BookingForm({
   const baseUnitINR = option === "cab" ? SHARED_CAB_PRICE : bike ? priceFor(bike, rider) : 0;
   const fare = fareFor(baseUnitINR, residence); // { amount, currency }
   const totalAmount = option === "cab" ? fare.amount * cabSeats : fare.amount;
+
+  // Referral discount: adv cash is in INR, so it only reduces INR (India) bookings.
+  const discount = referralState === "valid" && !intl ? Math.min(REFERRAL_DISCOUNT, totalAmount) : 0;
+  const payable = totalAmount - discount;
+
+  // Validate the referral code (debounced) whenever it changes.
+  useEffect(() => {
+    const code = referral.trim();
+    if (!code) { setReferralState("none"); return; }
+    setReferralState("checking");
+    const t = setTimeout(() => {
+      fetch(`/api/rewards/validate?code=${encodeURIComponent(code)}`)
+        .then((r) => r.json())
+        .then((d) => setReferralState(d.valid ? "valid" : "invalid"))
+        .catch(() => setReferralState("invalid"));
+    }, 450);
+    return () => clearTimeout(t);
+  }, [referral]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -73,6 +97,7 @@ export function BookingForm({
           riderType: option === "bike" ? rider : null,
           seats: option === "bike" ? (rider === "double" ? 2 : 1) : cabSeats,
           message,
+          referralCode: referral.trim() || undefined,
         }),
       });
       const data = await res.json();
@@ -230,6 +255,28 @@ export function BookingForm({
         )}
 
         <div>
+          <label htmlFor="referral" className="mb-1 block text-sm font-semibold text-navy">Referral code (optional)</label>
+          <input
+            id="referral"
+            value={referral}
+            onChange={(e) => setReferral(e.target.value.toUpperCase())}
+            className={field}
+            placeholder="TAM-XXXXXX"
+            autoCapitalize="characters"
+          />
+          {referralState === "valid" && !intl && (
+            <p className="mt-1 text-xs font-semibold text-green-600">✓ {formatINR(REFERRAL_DISCOUNT)} adv cash will be applied.</p>
+          )}
+          {referralState === "valid" && intl && (
+            <p className="mt-1 text-xs text-navy/50">✓ Valid code. Adv cash discount applies to India (INR) bookings only.</p>
+          )}
+          {referralState === "invalid" && (
+            <p className="mt-1 text-xs text-red-600">That code isn't valid or is inactive.</p>
+          )}
+          {referralState === "checking" && <p className="mt-1 text-xs text-navy/40">Checking…</p>}
+        </div>
+
+        <div>
           <label htmlFor="message" className="mb-1 block text-sm font-semibold text-navy">Anything else? (optional)</label>
           <textarea id="message" rows={3} value={message} onChange={(e) => setMessage(e.target.value)} className={field} placeholder="Riding experience, dietary needs, group size…" />
         </div>
@@ -254,11 +301,17 @@ export function BookingForm({
               <div className="flex justify-between"><dt className="text-cream/70">Seats</dt><dd className="font-semibold">{cabSeats}</dd></div>
             )}
           </dl>
-          <div className="mt-4 flex items-baseline justify-between border-t border-cream/15 pt-4">
-            <span className="text-cream/70">{option === "cab" && cabSeats > 1 ? "Total" : "From"}</span>
+          {discount > 0 && (
+            <div className="mt-4 space-y-1 border-t border-cream/15 pt-4 text-sm">
+              <div className="flex justify-between"><dt className="text-cream/70">Subtotal</dt><dd>{formatMoney(totalAmount, fare.currency)}</dd></div>
+              <div className="flex justify-between text-green-300"><dt>Adv cash</dt><dd>– {formatMoney(discount, fare.currency)}</dd></div>
+            </div>
+          )}
+          <div className={`mt-4 flex items-baseline justify-between ${discount > 0 ? "" : "border-t border-cream/15 pt-4"}`}>
+            <span className="text-cream/70">{discount > 0 ? "You pay" : option === "cab" && cabSeats > 1 ? "Total" : "From"}</span>
             <span className="font-serif text-2xl font-bold text-green-300">
-              {formatMoney(totalAmount, fare.currency)}
-              <span className="text-sm font-normal text-cream/60">{option === "bike" ? " /rider" : cabSeats > 1 ? "" : " /seat"}</span>
+              {formatMoney(payable, fare.currency)}
+              <span className="text-sm font-normal text-cream/60">{discount > 0 ? "" : option === "bike" ? " /rider" : cabSeats > 1 ? "" : " /seat"}</span>
             </span>
           </div>
           {intl && (

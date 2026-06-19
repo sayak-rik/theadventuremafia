@@ -75,7 +75,11 @@ export function AdminDashboard({
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-serif text-3xl font-bold text-navy">Bookings</h1>
+          <div className="flex gap-2 text-sm">
+            <span className="rounded-full bg-navy px-3 py-1.5 font-semibold text-cream">Bookings</span>
+            <a href="/admin/referrals" className="rounded-full px-3 py-1.5 font-semibold text-navy/50 hover:bg-cream">Referrals</a>
+          </div>
+          <h1 className="mt-3 font-serif text-3xl font-bold text-navy">Bookings</h1>
           <p className="mt-1 text-sm text-navy/60">Confirm or cancel bookings. Cancelling releases the seat.</p>
         </div>
         <button onClick={logout} className="rounded-full border border-navy/15 px-4 py-2 text-sm font-semibold text-navy/70 transition hover:bg-cream">

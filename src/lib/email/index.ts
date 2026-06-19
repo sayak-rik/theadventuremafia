@@ -10,6 +10,7 @@ import {
   bookingTeamNotification,
   contactNotification,
   contactAcknowledgement,
+  otpEmail,
   type BookingEmailData,
   type ContactEmailData,
 } from "./templates";
@@ -64,6 +65,11 @@ export async function sendBookingEmails(data: BookingEmailData): Promise<void> {
     send({ to: TEAM, ...team }),
     send({ to: data.email, ...customer }),
   ]);
+}
+
+/** Send a rewards verification OTP. Returns whether it was actually sent. */
+export async function sendOtpEmail(to: string, otp: string): Promise<boolean> {
+  return send({ to, ...otpEmail(otp) });
 }
 
 /** Contact: notify the team AND acknowledge the sender. */

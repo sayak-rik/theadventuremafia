@@ -26,6 +26,7 @@ export const NAV_LINKS = [
   { href: "/itinerary", label: "Itinerary" },
   { href: "/pricing", label: "Pricing" },
   { href: "/testimonials", label: "Testimonials" },
+  { href: "/rewards", label: "Refer & Earn" },
   { href: "/contact", label: "Contact" },
   { href: "/booking", label: "Book Now" },
 ] as const;
@@ -35,6 +36,7 @@ export const FOOTER_LINKS = [
   { href: "/pricing", label: "Pricing" },
   { href: "/booking", label: "Booking" },
   { href: "/testimonials", label: "Testimonials" },
+  { href: "/rewards", label: "Refer & Earn" },
   { href: "/contact", label: "Contact" },
   { href: "/terms", label: "Terms & Conditions" },
   { href: "/privacy", label: "Privacy Policy" },

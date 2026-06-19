@@ -4,6 +4,8 @@ import { getBikeModels } from "@/lib/data";
 import { priceFor, SHARED_CAB_PRICE, CAB_SEATS_PER_DEPARTURE, fareFor, type Residence } from "@/lib/pricing";
 import { sendBookingEmails } from "@/lib/email";
 import { isValidDeparture } from "@/lib/dates";
+import { REFERRAL_DISCOUNT, normalizeCode } from "@/lib/rewards";
+import { findActiveByCode } from "@/lib/rewards-data";
 
 type BookingPayload = {
   name?: string;
@@ -16,6 +18,7 @@ type BookingPayload = {
   riderType?: "single" | "double" | null;
   seats?: number;
   message?: string;
+  referralCode?: string;
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -63,6 +66,23 @@ export async function POST(req: Request) {
   const residence: Residence = body.residence === "INTL" ? "INTL" : "IN";
   const baseUnitINR = option === "cab" ? SHARED_CAB_PRICE : bike ? priceFor(bike, rider) : 0;
   const fare = fareFor(baseUnitINR, residence); // { amount, currency }
+  const total = option === "cab" ? fare.amount * seats : fare.amount;
+
+  // Referral: tag the referrer and (for INR bookings) apply the adv-cash discount.
+  // adv cash is a rupee credit, so the discount only applies to INR pricing.
+  let referredBy: number | null = null;
+  let referralCode: string | null = null;
+  let advCashDiscount = 0;
+  if (body.referralCode?.trim()) {
+    const code = normalizeCode(body.referralCode);
+    const referrer = await findActiveByCode(code);
+    // No self-referral (booking email must differ from the code owner's email).
+    if (referrer && referrer.email !== body.email!.trim().toLowerCase()) {
+      referredBy = referrer.id;
+      referralCode = referrer.referral_code;
+      if (residence === "IN") advCashDiscount = Math.min(REFERRAL_DISCOUNT, total);
+    }
+  }
 
   const emailData = {
     name: body.name!.trim(),
@@ -76,6 +96,7 @@ export async function POST(req: Request) {
     residence,
     price: fare.amount, // per rider (bike) or per seat (cab), in `currency`
     currency: fare.currency,
+    advCashDiscount,
     message: body.message?.trim() || undefined,
   };
 
@@ -129,8 +150,9 @@ export async function POST(req: Request) {
 
     const ins = await client.query<{ id: number }>(
       `INSERT INTO bookings
-         (trip_id, option, bike_model_id, rider, residence, name, email, phone, trip_date, seats, message)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+         (trip_id, option, bike_model_id, rider, residence, name, email, phone, trip_date, seats, message,
+          referral_code, referred_by, adv_cash_discount)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
        RETURNING id`,
       [
         trip.id,
@@ -144,6 +166,9 @@ export async function POST(req: Request) {
         body.tripDate,
         seats,
         body.message?.trim() || null,
+        referralCode,
+        referredBy,
+        advCashDiscount,
       ],
     );
 

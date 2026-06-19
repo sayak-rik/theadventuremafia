@@ -30,6 +30,7 @@ export type BookingEmailData = {
   residence?: "IN" | "INTL";
   price: number; // per rider (bike) or per seat (cab), in `currency`
   currency?: "INR" | "USD";
+  advCashDiscount?: number; // adv cash applied (in INR), 0 if none
   message?: string;
 };
 
@@ -97,12 +98,18 @@ function bookingRows(d: BookingEmailData): string {
   const date = formatPretty(d.tripDate);
   const fmt = money(d);
   const permit = d.residence === "INTL" ? `${row("Permit", "Inner-line permit costs are extra")}` : "";
+  const total = d.option === "cab" ? d.price * d.seats : d.price;
+  const discount = d.advCashDiscount ?? 0;
+  const advRows = discount > 0
+    ? `${row("Adv cash applied", `– ${money(d)(discount)}`)}${row("You pay", money(d)(Math.max(0, total - discount)))}`
+    : "";
   if (d.option === "cab") {
     return `${row("Departure", `${date} (Sunday)`)}
       ${row("Riding option", "Shared cab seat")}
       ${row("Seats", String(d.seats))}
       ${row("Fare", `${fmt(d.price)} / seat`)}
-      ${row("Total", fmt(d.price * d.seats))}
+      ${row("Total", fmt(total))}
+      ${advRows}
       ${permit}`;
   }
   return `${row("Departure", `${date} (Sunday)`)}
@@ -110,6 +117,7 @@ function bookingRows(d: BookingEmailData): string {
     ${row("Motorcycle", d.bikeName ?? "Royal Enfield")}
     ${row("Riders", d.rider === "double" ? "Two-up (double)" : "Solo (single)")}
     ${row("Fare", `${fmt(d.price)} / rider`)}
+    ${advRows}
     ${permit}`;
 }
 
@@ -195,6 +203,21 @@ export function contactAcknowledgement(d: ContactEmailData): { subject: string; 
     subject: `We received your message — ${SITE.name}`,
     html: shell({ preheader: "Thanks for reaching out — we'll reply within a day.", accent: COLORS.green, tagline: "Message received", heading: "Thanks for reaching out", body }),
     text: `Hi ${d.name},\n\nThanks for contacting The Adventure Mafia. We'll reply within one working day.\n\n— ${SITE.name}`,
+  };
+}
+
+// ---- Rewards OTP -----------------------------------------------------------
+export function otpEmail(otp: string): { subject: string; html: string; text: string } {
+  const body = `
+    <p style="margin:0 0 14px;">Use this code to verify your email and unlock your Adventure Mafia rewards account:</p>
+    <div style="margin:18px 0;text-align:center;">
+      <span style="display:inline-block;font-family:'Courier New',monospace;font-size:38px;font-weight:bold;letter-spacing:12px;color:${COLORS.navy};background:${COLORS.cream};border:1px solid ${COLORS.gold};border-radius:12px;padding:18px 28px;">${otp}</span>
+    </div>
+    <p style="margin:0;color:${COLORS.muted};font-size:13px;">This code expires in 10 minutes. If you didn't request it, you can ignore this email.</p>`;
+  return {
+    subject: `${otp} is your Adventure Mafia verification code`,
+    html: shell({ preheader: `Your code is ${otp}`, accent: COLORS.green, tagline: "Verify your email", heading: "Your verification code", body }),
+    text: `Your Adventure Mafia verification code is ${otp}. It expires in 10 minutes.`,
   };
 }
 
