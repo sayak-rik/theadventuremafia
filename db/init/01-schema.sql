@@ -36,17 +36,35 @@ CREATE TABLE IF NOT EXISTS trip_dates (
 );
 
 -- ---------------------------------------------------------------------------
+-- Treks / day-hike experiences. Daily availability, simple per-person price.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS treks (
+  id               SERIAL PRIMARY KEY,
+  slug             TEXT        NOT NULL UNIQUE,
+  name             TEXT        NOT NULL,
+  price_per_person INTEGER     NOT NULL,            -- INR, per person
+  taxi_fare_extra  BOOLEAN     NOT NULL DEFAULT FALSE, -- "+ taxi fare" on the day
+  is_active        BOOLEAN     NOT NULL DEFAULT TRUE,
+  sort_order       INTEGER     NOT NULL DEFAULT 0,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ---------------------------------------------------------------------------
 -- Bookings / lead capture.
 -- ---------------------------------------------------------------------------
 CREATE TYPE rider_type AS ENUM ('single', 'double');
-CREATE TYPE booking_option AS ENUM ('bike', 'cab');
+-- 'bike'/'cab' apply to the expedition; 'trek' to day-trek bookings.
+CREATE TYPE booking_option AS ENUM ('bike', 'cab', 'trek');
 
 CREATE TABLE IF NOT EXISTS bookings (
   id            SERIAL PRIMARY KEY,
   trip_id       INTEGER        REFERENCES trip_dates(id) ON DELETE SET NULL,
-  -- 'bike' = riding a motorcycle; 'cab' = shared support-cab seat(s).
+  -- 'expedition' = the 7-day bike tour; 'trek' = a day-trek booking.
+  product_type  TEXT           NOT NULL DEFAULT 'expedition',
+  -- 'bike' = riding a motorcycle; 'cab' = shared support-cab seat(s); 'trek' = day trek.
   option        booking_option NOT NULL DEFAULT 'bike',
   bike_model_id INTEGER        REFERENCES bike_models(id) ON DELETE SET NULL,
+  trek_id       INTEGER        REFERENCES treks(id) ON DELETE SET NULL,
   rider         rider_type,    -- only for option = 'bike'
   residence     TEXT           NOT NULL DEFAULT 'IN', -- 'IN' (INR) | 'INTL' (USD)
   name          TEXT           NOT NULL,

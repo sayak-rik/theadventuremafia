@@ -10,13 +10,15 @@ export type AdminBooking = {
   email: string;
   phone: string;
   trip_date: string;
-  option: "bike" | "cab";
+  product_type: "expedition" | "trek";
+  option: "bike" | "cab" | "trek";
   rider: "single" | "double" | null;
   seats: number;
   residence: string;
   status: string;
   created_at: string;
   bike_name: string | null;
+  trek_name: string | null;
 };
 
 const STATUS_STYLES: Record<string, string> = {
@@ -108,12 +110,18 @@ export function AdminDashboard({
           const cabSeats = rows
             .filter((r) => r.option === "cab" && r.status !== "cancelled")
             .reduce((n, r) => n + r.seats, 0);
+          const trekPeople = rows
+            .filter((r) => r.product_type === "trek" && r.status !== "cancelled")
+            .reduce((n, r) => n + r.seats, 0);
+          const hasExpedition = rows.some((r) => r.product_type !== "trek");
           return (
             <div key={date}>
               <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-navy/10 pb-2">
                 <h2 className="font-serif text-xl font-bold text-navy">{formatPretty(date)}</h2>
                 <p className="text-xs text-navy/50">
-                  {bikes}/20 bikes · {cabSeats}/10 cab seats booked
+                  {hasExpedition && <>{bikes}/20 bikes · {cabSeats}/10 cab seats booked</>}
+                  {hasExpedition && trekPeople > 0 && " · "}
+                  {trekPeople > 0 && `${trekPeople} on treks`}
                 </p>
               </div>
 
@@ -137,9 +145,11 @@ export function AdminDashboard({
                         {b.email} · {b.phone}
                       </p>
                       <p className="mt-0.5 text-sm text-navy/70">
-                        {b.option === "bike"
-                          ? `🏍️ ${b.bike_name ?? "Bike"} · ${b.rider === "double" ? "Two-up" : "Solo"}`
-                          : `🚙 Shared cab · ${b.seats} seat${b.seats > 1 ? "s" : ""}`}
+                        {b.product_type === "trek"
+                          ? `🥾 ${b.trek_name ?? "Day trek"} · ${b.seats} ${b.seats > 1 ? "people" : "person"}`
+                          : b.option === "bike"
+                            ? `🏍️ ${b.bike_name ?? "Bike"} · ${b.rider === "double" ? "Two-up" : "Solo"}`
+                            : `🚙 Shared cab · ${b.seats} seat${b.seats > 1 ? "s" : ""}`}
                       </p>
                     </div>
 

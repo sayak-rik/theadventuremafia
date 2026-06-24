@@ -218,6 +218,26 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
 docker compose -f docker-compose.prod.yml logs -f app
 ```
 
+**Run a database migration:** the `db/init/*.sql` scripts run only once, on a
+**fresh** database volume. Files in `db/migrations/` must be applied by hand to
+an already-running database, in order. Pipe the file into `psql`:
+```bash
+docker compose -f docker-compose.prod.yml exec -T db \
+  psql -U adventure -d adventuremafia < db/migrations/003_treks.sql
+```
+`003_treks.sql` adds the `treks` table (Rani Dhunga + Yuksom seed rows) and the
+`product_type` / `trek_id` columns plus the `'trek'` booking option. It is
+idempotent (`IF NOT EXISTS` / `ON CONFLICT`), so re-running it is safe.
+> The `ALTER TYPE booking_option ADD VALUE 'trek'` runs as its own
+> auto-committed statement (the file has no `BEGIN`), which is exactly what
+> Postgres requires for enum additions — piping the file through `psql` works.
+
+Verify it applied:
+```bash
+docker compose -f docker-compose.prod.yml exec db \
+  psql -U adventure -d adventuremafia -c "SELECT slug, price_per_person FROM treks ORDER BY sort_order;"
+```
+
 **Back up the database:**
 ```bash
 docker compose -f docker-compose.prod.yml exec db \

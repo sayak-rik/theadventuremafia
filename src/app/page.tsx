@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Hero } from "@/components/Hero";
 import { Reveal } from "@/components/Reveal";
 import { SectionHeading } from "@/components/SectionHeading";
@@ -10,6 +11,8 @@ import { JsonLd } from "@/components/JsonLd";
 import { touristTripLd, faqLd } from "@/lib/seo";
 import { FAQS } from "@/data/faq";
 import { ROUTE_STOPS } from "@/data/itinerary";
+import { EXPERIENCES } from "@/data/experiences";
+import { formatINR } from "@/lib/pricing";
 import { getTestimonials } from "@/lib/data";
 
 const FEATURES = [
@@ -52,10 +55,65 @@ export default async function HomePage() {
       />
       <Hero />
 
-      {/* Overview */}
+      {/* Our Adventures */}
       <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6">
         <SectionHeading
-          eyebrow="The Expedition"
+          center
+          eyebrow="Our Adventures"
+          title="Pick your kind of Himalaya"
+          subtitle="From a seven-day motorcycle expedition to easy forest day treks — every adventure is guided, with local crews who know these hills."
+        />
+        <div className="mt-12 grid gap-6 md:grid-cols-3">
+          {EXPERIENCES.map((exp, i) => (
+            <Reveal key={exp.href} delay={i * 0.1}>
+              <Link
+                href={exp.href}
+                className="group flex h-full flex-col overflow-hidden rounded-2xl border border-navy/10 bg-white shadow-sm transition hover:shadow-luxe"
+              >
+                <div className="relative aspect-[4/3] overflow-hidden">
+                  <Image
+                    src={exp.image}
+                    alt={exp.title}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 33vw"
+                    className="object-cover transition duration-500 group-hover:scale-105"
+                  />
+                  {exp.badge && (
+                    <span className="absolute left-3 top-3 rounded-full bg-navy/85 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-cream">
+                      {exp.badge}
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-1 flex-col p-6">
+                  <h3 className="font-serif text-xl font-bold text-navy">{exp.title}</h3>
+                  <p className="mt-2 flex-1 text-sm leading-relaxed text-navy/70">{exp.blurb}</p>
+                  <div className="mt-4 flex items-center gap-3 text-xs text-navy/50">
+                    <span>{exp.duration}</span>
+                    <span aria-hidden>·</span>
+                    <span>{exp.difficulty}</span>
+                  </div>
+                  <div className="mt-4 flex items-baseline justify-between border-t border-navy/10 pt-4">
+                    <span className="text-sm text-navy/60">
+                      from{" "}
+                      <span className="font-serif text-lg font-bold text-navy">{formatINR(exp.priceFrom)}</span>{" "}
+                      {exp.priceUnit}
+                      {exp.priceSuffix ? ` ${exp.priceSuffix}` : ""}
+                    </span>
+                    <span className="text-sm font-semibold text-green-600 transition group-hover:translate-x-0.5">
+                      View →
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      {/* The flagship expedition */}
+      <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6">
+        <SectionHeading
+          eyebrow="The Flagship Expedition"
           title="Seven days. One unforgettable line across the Himalayas."
           subtitle="From New Jalpaiguri we climb west into Sikkim's quiet monasteries and valleys, then north to the snowfields of Gurudongmar — a route built for riders who want the road less travelled, without giving up comfort."
         />

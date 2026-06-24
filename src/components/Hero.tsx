@@ -46,7 +46,7 @@ export function Hero() {
           transition={{ duration: 0.7, delay: 0.1 }}
           className="mt-5 max-w-3xl font-serif text-4xl font-bold leading-[1.05] text-cream sm:text-6xl"
         >
-          The Untouched <span className="text-green-300">West Sikkim</span> Expedition
+          Himalayan adventures in <span className="text-green-300">West & North Sikkim</span>
         </motion.h1>
 
         <motion.p
@@ -55,9 +55,9 @@ export function Hero() {
           transition={{ duration: 0.7, delay: 0.2 }}
           className="mt-6 max-w-xl text-lg leading-relaxed text-cream/85"
         >
-          Seven days of guided riding through secluded Himalayan trails — from the
-          monasteries of Pelling to the icy shore of Gurudongmar Lake. Limited
-          Sunday departures, full luxury support.
+          A flagship 7-day guided motorcycle expedition to Gurudongmar Lake, plus
+          forest day treks and hikes around Pelling and Yuksom. Guided by riders and
+          trekkers who call these hills home.
         </motion.p>
 
         <motion.div
@@ -67,16 +67,16 @@ export function Hero() {
           className="mt-9 flex flex-wrap gap-4"
         >
           <Link
-            href="/booking"
+            href="/adventures"
             className="rounded-full bg-green px-7 py-3.5 text-sm font-semibold text-white shadow-luxe transition hover:bg-green-600"
           >
-            Reserve your seat
+            Explore adventures
           </Link>
           <Link
-            href="/itinerary"
+            href="/booking"
             className="rounded-full border border-cream/30 px-7 py-3.5 text-sm font-semibold text-cream transition hover:border-green-300 hover:text-green-300"
           >
-            View the 7-day itinerary
+            Book the expedition
           </Link>
         </motion.div>
 
@@ -87,9 +87,9 @@ export function Hero() {
           className="mt-14 grid max-w-lg grid-cols-3 gap-6 border-t border-cream/15 pt-8"
         >
           {[
-            ["7 Days", "Guided ride"],
+            ["3+", "Adventures"],
             ["4,441 m", "Gurudongmar Lake"],
-            ["Sun only", "Sep – May"],
+            ["Daily", "Day treks"],
           ].map(([big, small]) => (
             <div key={small}>
               <dt className="font-serif text-2xl font-bold text-cream">{big}</dt>

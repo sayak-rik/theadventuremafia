@@ -23,12 +23,15 @@ export type BookingEmailData = {
   email: string;
   phone: string;
   tripDate: string;
-  option: "bike" | "cab";
+  productType?: "expedition" | "trek";
+  option: "bike" | "cab" | "trek";
   bikeName?: string; // option = 'bike'
+  trekName?: string; // product = 'trek'
+  priceNote?: string; // product = 'trek' (e.g. "+ taxi fare")
   rider?: "single" | "double"; // option = 'bike'
-  seats: number; // riders on the bike, or cab seats
+  seats: number; // riders on the bike, cab seats, or people on a trek
   residence?: "IN" | "INTL";
-  price: number; // per rider (bike) or per seat (cab), in `currency`
+  price: number; // per rider (bike), per seat (cab) or per person (trek), in `currency`
   currency?: "INR" | "USD";
   advCashDiscount?: number; // adv cash applied (in INR), 0 if none
   message?: string;
@@ -75,9 +78,9 @@ function shell(opts: { preheader: string; accent: string; heading: string; tagli
   <tr><td style="padding:12px 32px 8px 32px;font-size:15px;line-height:1.6;color:${COLORS.ink};">${opts.body}</td></tr>
   <!-- footer -->
   <tr><td style="padding:24px 32px 32px;border-top:1px solid #eee;color:${COLORS.muted};font-size:12px;line-height:1.6;">
-    <strong style="color:${COLORS.navy};">${SITE.name}</strong> &middot; Untouched West Sikkim Expedition<br/>
+    <strong style="color:${COLORS.navy};">${SITE.name}</strong> &middot; Himalayan adventures in West &amp; North Sikkim<br/>
     <a href="mailto:${SITE.email}" style="color:${COLORS.green};text-decoration:none;">${SITE.email}</a> &middot; ${SITE.phone}<br/>
-    <span style="color:${COLORS.muted};">Departures every Sunday &middot; Sep&ndash;May &middot; Sikkim ILP permits required</span>
+    <span style="color:${COLORS.muted};">Motorcycle expeditions &middot; treks &amp; day hikes &middot; Sikkim ILP permits may apply</span>
   </td></tr>
 </table>
 </td></tr>
@@ -104,6 +107,15 @@ function bookingRows(d: BookingEmailData): string {
   const advRows = discount > 0
     ? `${row("Adv cash applied", `– ${money(d)(discount)}`)}${row("You pay", money(d)(Math.max(0, total - discount)))}`
     : "";
+  if (d.productType === "trek") {
+    return `${row("Trek", d.trekName ?? "Day trek")}
+      ${row("Date", date)}
+      ${row("People", String(d.seats))}
+      ${row("Fare", `${fmt(d.price)} / person`)}
+      ${row("Total", `${fmt(total)}${d.seats > 1 ? ` (${d.seats} × ${fmt(d.price)})` : ""}`)}
+      ${d.priceNote ? row("Note", d.priceNote) : ""}
+      ${advRows}`;
+  }
   if (d.option === "cab") {
     return `${row("Departure", `${date} (Sunday)`)}
       ${row("Riding option", "Shared cab seat")}
@@ -126,27 +138,37 @@ function bookingRows(d: BookingEmailData): string {
 // ---- Booking confirmation (to customer) ----------------------------------
 export function bookingConfirmation(d: BookingEmailData): { subject: string; html: string; text: string } {
   const date = formatPretty(d.tripDate);
-  const summary = d.option === "cab"
-    ? `${d.seats} shared-cab seat${d.seats > 1 ? "s" : ""}`
-    : `the ${d.bikeName ?? "Royal Enfield"}`;
+  const isTrek = d.productType === "trek";
+  const productName = isTrek ? (d.trekName ?? "day trek") : "Untouched West Sikkim Expedition";
+  const summary = isTrek
+    ? `${d.seats} ${d.seats > 1 ? "people" : "person"}`
+    : d.option === "cab"
+      ? `${d.seats} shared-cab seat${d.seats > 1 ? "s" : ""}`
+      : `the ${d.bikeName ?? "Royal Enfield"}`;
   const details = `<table role="presentation" width="100%" style="margin:16px 0;border-collapse:collapse;">
     ${bookingRows(d)}
   </table>`;
+  const ctaHref = isTrek ? `${SITE.url}/adventures` : `${SITE.url}/itinerary`;
+  const ctaLabel = isTrek ? "Explore more adventures" : "Review the 7-day itinerary";
 
   const body = `
     <p style="margin:0 0 14px;">Hi ${d.name.split(" ")[0]},</p>
-    <p style="margin:0 0 14px;">Thank you for choosing the <strong>Untouched West Sikkim Expedition</strong>. We&rsquo;ve received your request and our crew will confirm seat availability and permits within 24 hours.</p>
+    <p style="margin:0 0 14px;">Thank you for choosing the <strong>${escapeHtml(productName)}</strong>. We&rsquo;ve received your request and our crew will confirm availability${isTrek ? "" : " and permits"} within 24 hours.</p>
     ${details}
     ${d.message ? `<p style="margin:0 0 14px;color:${COLORS.muted};"><em>Your note:</em> ${escapeHtml(d.message)}</p>` : ""}
     <table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 18px;"><tr><td style="border-radius:999px;background:${COLORS.green};">
-      <a href="${SITE.url}/itinerary" style="display:inline-block;padding:13px 26px;font-size:14px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:999px;">Review the 7-day itinerary</a>
+      <a href="${ctaHref}" style="display:inline-block;padding:13px 26px;font-size:14px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:999px;">${ctaLabel}</a>
     </td></tr></table>
-    <p style="margin:0;color:${COLORS.muted};font-size:13px;">No payment is due yet &mdash; we confirm availability and permits first. Reply to this email with any questions.</p>`;
+    <p style="margin:0;color:${COLORS.muted};font-size:13px;">No payment is due yet &mdash; we confirm availability first. Reply to this email with any questions.</p>`;
+
+  const textDetail = isTrek
+    ? `Trek: ${d.trekName}\nDate: ${date}\nPeople: ${d.seats}\nFare: ${money(d)(d.price)}/person${d.priceNote ? `\nNote: ${d.priceNote}` : ""}`
+    : `Departure: ${date} (Sunday)\nOption: ${d.option === "cab" ? "Shared cab seat" : "Ride a motorbike"}\n${d.option === "cab" ? `Seats: ${d.seats}\nFare: ${money(d)(d.price)}/seat` : `Bike: ${d.bikeName}\nRiders: ${d.rider}\nFare: ${money(d)(d.price)}/rider`}${d.residence === "INTL" ? "\nNote: inner-line permit costs are extra." : ""}`;
 
   return {
-    subject: `Your West Sikkim Expedition request — ${date}`,
+    subject: isTrek ? `Your ${d.trekName} booking — ${date}` : `Your West Sikkim Expedition request — ${date}`,
     html: shell({ preheader: `We received your booking for ${date}.`, accent: COLORS.green, tagline: "Booking received", heading: "We've got your booking request", body }),
-    text: `Hi ${d.name},\n\nThanks for booking the Untouched West Sikkim Expedition (${summary}).\n\nDeparture: ${date} (Sunday)\nOption: ${d.option === "cab" ? "Shared cab seat" : "Ride a motorbike"}\n${d.option === "cab" ? `Seats: ${d.seats}\nFare: ${money(d)(d.price)}/seat` : `Bike: ${d.bikeName}\nRiders: ${d.rider}\nFare: ${money(d)(d.price)}/rider`}${d.residence === "INTL" ? "\nNote: inner-line permit costs are extra." : ""}\n\nWe'll confirm availability and permits within 24 hours.\n\n— ${SITE.name}`,
+    text: `Hi ${d.name},\n\nThanks for booking the ${productName} (${summary}).\n\n${textDetail}\n\nWe'll confirm availability within 24 hours.\n\n— ${SITE.name}`,
   };
 }
 
@@ -159,15 +181,19 @@ export function bookingTeamNotification(d: BookingEmailData): { subject: string;
     ${row("Phone", escapeHtml(d.phone))}
     ${bookingRows(d)}
   </table>`;
+  const isTrek = d.productType === "trek";
   const body = `
     <p style="margin:0 0 14px;">A new booking request just came in. Follow up within 24 hours.</p>
     ${details}
     ${d.message ? `<p style="margin:0;color:${COLORS.muted};"><strong>Message:</strong> ${escapeHtml(d.message)}</p>` : ""}`;
-  const optLabel = d.option === "cab" ? "Shared cab seat" : "Ride a motorbike";
+  const optLabel = isTrek ? `Trek · ${d.trekName}` : d.option === "cab" ? "Shared cab seat" : "Ride a motorbike";
+  const textDetail = isTrek
+    ? `Trek: ${d.trekName}\nDate: ${date}\nPeople: ${d.seats}\nFare: ${money(d)(d.price)}/person\nTotal: ${money(d)(d.price * d.seats)}${d.priceNote ? `\nNote: ${d.priceNote}` : ""}`
+    : `Departure: ${date}\nOption: ${optLabel}\n${d.option === "cab" ? `Seats: ${d.seats}\nFare: ${money(d)(d.price)}/seat\nTotal: ${money(d)(d.price * d.seats)}` : `Bike: ${d.bikeName}\nRiders: ${d.rider}\nFare: ${money(d)(d.price)}/rider`}`;
   return {
-    subject: `🏍️ New booking — ${escapeHtml(d.name)} · ${date}`,
-    html: shell({ preheader: `New booking from ${d.name} for ${date}.`, accent: COLORS.gold, tagline: "New booking", heading: "New expedition booking", body }),
-    text: `New booking\n\nName: ${d.name}\nEmail: ${d.email}\nPhone: ${d.phone}\nResidence: ${d.residence === "INTL" ? "Outside India (USD, permit extra)" : "India"}\nDeparture: ${date}\nOption: ${optLabel}\n${d.option === "cab" ? `Seats: ${d.seats}\nFare: ${money(d)(d.price)}/seat\nTotal: ${money(d)(d.price * d.seats)}` : `Bike: ${d.bikeName}\nRiders: ${d.rider}\nFare: ${money(d)(d.price)}/rider`}\nMessage: ${d.message ?? "-"}`,
+    subject: `${isTrek ? "🥾" : "🏍️"} New booking — ${escapeHtml(d.name)} · ${date}`,
+    html: shell({ preheader: `New booking from ${d.name} for ${date}.`, accent: COLORS.gold, tagline: "New booking", heading: isTrek ? "New trek booking" : "New expedition booking", body }),
+    text: `New booking\n\nName: ${d.name}\nEmail: ${d.email}\nPhone: ${d.phone}\nResidence: ${d.residence === "INTL" ? "Outside India (USD)" : "India"}\n${textDetail}\nMessage: ${d.message ?? "-"}`,
   };
 }
 

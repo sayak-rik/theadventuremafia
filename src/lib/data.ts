@@ -3,6 +3,7 @@
 // (e.g. during `next build` static generation or a first local run).
 
 import { query } from "./db";
+import { TREKS } from "@/data/treks";
 
 export type BikeModel = {
   id: number;
@@ -19,6 +20,15 @@ export type Testimonial = {
   location: string | null;
   content: string;
   rating: number;
+};
+
+export type Trek = {
+  id: number;
+  slug: string;
+  name: string;
+  price_per_person: number;
+  taxi_fare_extra: boolean;
+  sort_order: number;
 };
 
 // --- Seed fallbacks (mirror db/init/02-seed.sql) ---------------------------
@@ -41,6 +51,17 @@ const SEED_TESTIMONIALS: Testimonial[] = [
   { id: 8, name: "Meera Pillai", location: "Kochi", rating: 5, content: "I don't ride, so I took a shared-cab seat while my husband did. Turned out to be the best of both — comfortable over the high passes and still there for every stop." },
 ];
 
+// Seed fallback for treks, derived from the editorial content so price and
+// availability have a single source of truth (mirrors db/init/02-seed.sql).
+const SEED_TREKS: Trek[] = TREKS.map((t, i) => ({
+  id: i + 1,
+  slug: t.slug,
+  name: t.name,
+  price_per_person: t.pricePerPerson,
+  taxi_fare_extra: t.taxiFareExtra,
+  sort_order: i + 1,
+}));
+
 export async function getBikeModels(): Promise<BikeModel[]> {
   const rows = await query<BikeModel>(
     `SELECT id, name, engine_cc, price_double, price_single, sort_order
@@ -55,6 +76,19 @@ export async function getTestimonials(): Promise<Testimonial[]> {
        FROM testimonials WHERE is_published = TRUE ORDER BY created_at DESC`,
   );
   return rows && rows.length ? rows : SEED_TESTIMONIALS;
+}
+
+export async function getTreks(): Promise<Trek[]> {
+  const rows = await query<Trek>(
+    `SELECT id, slug, name, price_per_person, taxi_fare_extra, sort_order
+       FROM treks WHERE is_active = TRUE ORDER BY sort_order ASC`,
+  );
+  return rows && rows.length ? rows : SEED_TREKS;
+}
+
+export async function getTrekById(id: number): Promise<Trek | undefined> {
+  const treks = await getTreks();
+  return treks.find((t) => t.id === id);
 }
 
 export async function getOpenDepartures(): Promise<string[]> {

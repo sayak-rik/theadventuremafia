@@ -41,7 +41,7 @@ export function Footer() {
               </a>
             </li>
             <li className="pt-2 text-cream/60">
-              Departures every Sunday · Sep–May
+              Expedition: Sundays, Sep–May · Treks: daily
             </li>
           </ul>
         </div>

@@ -10,6 +10,12 @@ INSERT INTO bike_models (name, engine_cc, price_double, price_single, sort_order
   ('Hunter 350',    350, 37000, 47000, 5)
 ON CONFLICT DO NOTHING;
 
+-- Treks / day hikes. Daily availability, simple per-person price.
+INSERT INTO treks (slug, name, price_per_person, taxi_fare_extra, sort_order) VALUES
+  ('rani-dhunga-day-trek', 'Rani Dhunga Day Trek', 1200, FALSE, 1),
+  ('yuksom-day-hike',      'Yuksom Day Hike',        600, TRUE,  2)
+ON CONFLICT (slug) DO NOTHING;
+
 -- Departure dates: every Sunday in the Sep–May season for the upcoming season.
 -- Generated from the date series, keeping only Sundays (DOW = 0) that fall in
 -- September–December or January–May.

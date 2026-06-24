@@ -33,11 +33,14 @@ export default async function AdminPage() {
     `SELECT
         b.id, b.name, b.email, b.phone,
         to_char(b.trip_date, 'YYYY-MM-DD') AS trip_date,
+        COALESCE(b.product_type, 'expedition') AS product_type,
         b.option, b.rider, b.seats, b.residence, b.status,
         to_char(b.created_at, 'YYYY-MM-DD HH24:MI') AS created_at,
-        bm.name AS bike_name
+        bm.name AS bike_name,
+        t.name AS trek_name
      FROM bookings b
      LEFT JOIN bike_models bm ON bm.id = b.bike_model_id
+     LEFT JOIN treks t ON t.id = b.trek_id
      ORDER BY b.trip_date ASC, b.created_at ASC`,
   );
 

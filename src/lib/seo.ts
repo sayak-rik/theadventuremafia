@@ -89,6 +89,40 @@ export function touristTripLd(opts?: {
   return data;
 }
 
+export function trekTripLd(trek: {
+  slug: string;
+  name: string;
+  overview: string;
+  pricePerPerson: number;
+  difficulty: string;
+  location: string;
+  heroImage: string;
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "TouristTrip",
+    name: trek.name,
+    description: trek.overview,
+    url: abs(`/adventures/${trek.slug}`),
+    image: trek.heroImage,
+    touristType: ["Trekking", "Day hike", "Adventure travel"],
+    provider: {
+      "@type": "TravelAgency",
+      name: SITE.name,
+      url: SITE.url,
+      telephone: SITE.phone,
+      email: SITE.email,
+    },
+    offers: {
+      "@type": "Offer",
+      priceCurrency: "INR",
+      price: String(trek.pricePerPerson),
+      availability: "https://schema.org/InStock",
+      url: abs(`/adventures/${trek.slug}`),
+    },
+  };
+}
+
 export function faqLd(faqs: { q: string; a: string }[]) {
   return {
     "@context": "https://schema.org",

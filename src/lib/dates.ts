@@ -17,6 +17,13 @@ export function isValidDeparture(d: Date, from: Date = new Date()): boolean {
   return isSunday(d) && isInSeason(d) && d >= today;
 }
 
+/** Treks run daily — valid on any date from today onward. */
+export function isValidTrekDate(d: Date, from: Date = new Date()): boolean {
+  const today = new Date(from);
+  today.setHours(0, 0, 0, 0);
+  return !Number.isNaN(d.getTime()) && d >= today;
+}
+
 /** Format as YYYY-MM-DD in local time (avoids UTC off-by-one from toISOString). */
 export function toISODate(d: Date): string {
   const y = d.getFullYear();
