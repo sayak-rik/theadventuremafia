@@ -107,10 +107,11 @@ export async function POST(req: Request) {
 
   // Referral: tag the referrer and (for INR bookings) apply the adv-cash discount.
   // adv cash is a rupee credit, so the discount only applies to INR pricing.
+  // Referral codes are NOT accepted on treks.
   let referredBy: number | null = null;
   let referralCode: string | null = null;
   let advCashDiscount = 0;
-  if (body.referralCode?.trim()) {
+  if (productType !== "trek" && body.referralCode?.trim()) {
     const code = normalizeCode(body.referralCode);
     const referrer = await findActiveByCode(code);
     // No self-referral: not your own code (signed in) and not your own email.

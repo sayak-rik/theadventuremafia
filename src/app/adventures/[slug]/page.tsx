@@ -144,8 +144,8 @@ export default async function TrekPage({
           <SectionHeading eyebrow="The Day" title="How the trek unfolds" />
           <ol className="relative mt-10 border-l-2 border-green/30">
             {trek.itinerary.map((step, i) => (
-              <li key={step.label} className="relative ml-6 pb-8 last:pb-0">
-                <span className="absolute -left-[2.1rem] flex h-9 w-9 items-center justify-center rounded-full bg-green font-serif text-sm font-bold text-white ring-4 ring-cream">
+              <li key={step.label} className="relative ml-10 pb-8 last:pb-0">
+                <span className="absolute -left-[3.1rem] flex h-9 w-9 items-center justify-center rounded-full bg-green font-serif text-sm font-bold text-white ring-4 ring-cream">
                   {i + 1}
                 </span>
                 <Reveal>
@@ -195,7 +195,7 @@ export default async function TrekPage({
       </section>
 
       {/* Booking */}
-      <section id="book" className="border-t border-navy/10 bg-cream">
+      <section id="book" className="scroll-mt-20 border-t border-navy/10 bg-cream">
         <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
           <SectionHeading
             eyebrow="Book this trek"

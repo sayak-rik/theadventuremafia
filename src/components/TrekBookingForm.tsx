@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { fareFor, formatMoney, type Residence } from "@/lib/pricing";
-import { REFERRAL_DISCOUNT, formatINR } from "@/lib/rewards";
+import { formatINR } from "@/lib/rewards";
 import { toISODate, formatPretty } from "@/lib/dates";
 import { CountryCodeSelect } from "./CountryCodeSelect";
 
@@ -32,9 +32,9 @@ export function TrekBookingForm({
   const [residence, setResidence] = useState<Residence>("IN");
   const [message, setMessage] = useState("");
 
-  const [referral, setReferral] = useState("");
-  const [referralState, setReferralState] = useState<"none" | "checking" | "valid" | "invalid" | "self">("none");
-  const [rewardUser, setRewardUser] = useState<{ advCash: number; referralCode: string } | null>(null);
+  // Signed-in reward users can still spend their own adv-cash balance on a trek.
+  // Referral codes, however, are not accepted on treks.
+  const [rewardUser, setRewardUser] = useState<{ advCash: number } | null>(null);
   const [applyWallet, setApplyWallet] = useState(true);
 
   const [status, setStatus] = useState<"idle" | "submitting" | "done" | "error">("idle");
@@ -43,32 +43,17 @@ export function TrekBookingForm({
   const intl = residence === "INTL";
   const fare = fareFor(pricePerPerson, residence); // { amount, currency }
   const totalAmount = fare.amount * people;
-  const discount = referralState === "valid" && !intl ? Math.min(REFERRAL_DISCOUNT * people, totalAmount) : 0;
   const walletAvail = rewardUser?.advCash ?? 0;
-  const walletApplied = applyWallet && !intl ? Math.min(walletAvail, totalAmount - discount) : 0;
-  const payable = totalAmount - discount - walletApplied;
+  const walletApplied = applyWallet && !intl ? Math.min(walletAvail, totalAmount) : 0;
+  const payable = totalAmount - walletApplied;
 
   const today = toISODate(new Date());
 
   useEffect(() => {
     fetch("/api/rewards/me").then((r) => r.json()).then((d) => {
-      if (d.user) setRewardUser({ advCash: d.user.advCash, referralCode: d.user.referralCode });
+      if (d.user) setRewardUser({ advCash: d.user.advCash });
     }).catch(() => {});
   }, []);
-
-  useEffect(() => {
-    const code = referral.trim().toUpperCase();
-    if (!code) { setReferralState("none"); return; }
-    if (rewardUser && code === rewardUser.referralCode.toUpperCase()) { setReferralState("self"); return; }
-    setReferralState("checking");
-    const t = setTimeout(() => {
-      fetch(`/api/rewards/validate?code=${encodeURIComponent(code)}`)
-        .then((r) => r.json())
-        .then((d) => setReferralState(d.valid ? "valid" : "invalid"))
-        .catch(() => setReferralState("invalid"));
-    }, 450);
-    return () => clearTimeout(t);
-  }, [referral, rewardUser]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -88,7 +73,6 @@ export function TrekBookingForm({
           trekId,
           seats: people,
           message,
-          referralCode: referralState === "self" ? undefined : referral.trim() || undefined,
           applyAdvCash: applyWallet && walletApplied > 0,
         }),
       });
@@ -180,25 +164,6 @@ export function TrekBookingForm({
           </div>
         </div>
 
-        <div>
-          <label htmlFor="t-referral" className="mb-1 block text-sm font-semibold text-navy">Referral code (optional)</label>
-          <input
-            id="t-referral"
-            value={referral}
-            onChange={(e) => setReferral(e.target.value.toUpperCase())}
-            className={field}
-            placeholder="TAM-XXXXXX"
-            autoCapitalize="characters"
-          />
-          {referralState === "valid" && !intl && (
-            <p className="mt-1 text-xs font-semibold text-green-600">✓ {formatINR(REFERRAL_DISCOUNT)} adv cash per person will be applied.</p>
-          )}
-          {referralState === "valid" && intl && <p className="mt-1 text-xs text-navy/50">✓ Valid code. Adv cash applies to India (INR) bookings only.</p>}
-          {referralState === "invalid" && <p className="mt-1 text-xs text-red-600">That code isn&rsquo;t valid or is inactive.</p>}
-          {referralState === "self" && <p className="mt-1 text-xs text-red-600">You can&rsquo;t use your own referral code.</p>}
-          {referralState === "checking" && <p className="mt-1 text-xs text-navy/40">Checking…</p>}
-        </div>
-
         {rewardUser && walletAvail > 0 && !intl && (
           <label className="flex items-start gap-3 rounded-xl border border-green/30 bg-green/5 p-4">
             <input type="checkbox" checked={applyWallet} onChange={(e) => setApplyWallet(e.target.checked)} className="mt-0.5 h-4 w-4 accent-green" />
@@ -225,15 +190,14 @@ export function TrekBookingForm({
             <div className="flex justify-between"><dt className="text-cream/70">People</dt><dd className="font-semibold">{people}</dd></div>
             <div className="flex justify-between"><dt className="text-cream/70">Per person</dt><dd className="font-semibold">{formatMoney(fare.amount, fare.currency)}</dd></div>
           </dl>
-          {(discount > 0 || walletApplied > 0) && (
+          {walletApplied > 0 && (
             <div className="mt-4 space-y-1 border-t border-cream/15 pt-4 text-sm">
               <div className="flex justify-between"><dt className="text-cream/70">Subtotal</dt><dd>{formatMoney(totalAmount, fare.currency)}</dd></div>
-              {discount > 0 && <div className="flex justify-between text-green-300"><dt>Referral adv cash</dt><dd>– {formatMoney(discount, fare.currency)}</dd></div>}
-              {walletApplied > 0 && <div className="flex justify-between text-green-300"><dt>Your adv cash</dt><dd>– {formatMoney(walletApplied, fare.currency)}</dd></div>}
+              <div className="flex justify-between text-green-300"><dt>Your adv cash</dt><dd>– {formatMoney(walletApplied, fare.currency)}</dd></div>
             </div>
           )}
-          <div className={`mt-4 flex items-baseline justify-between ${discount > 0 || walletApplied > 0 ? "" : "border-t border-cream/15 pt-4"}`}>
-            <span className="text-cream/70">{discount > 0 || walletApplied > 0 ? "You pay" : "Total"}</span>
+          <div className={`mt-4 flex items-baseline justify-between ${walletApplied > 0 ? "" : "border-t border-cream/15 pt-4"}`}>
+            <span className="text-cream/70">{walletApplied > 0 ? "You pay" : "Total"}</span>
             <span className="font-serif text-2xl font-bold text-green-300">{formatMoney(payable, fare.currency)}</span>
           </div>
           {taxiFareExtra && <p className="mt-2 text-xs text-cream/60">{priceNote ?? "Taxi fare is extra, shared and paid on the day."}</p>}
