@@ -40,6 +40,12 @@ function getTransport(): Transporter | null {
     secure,
     requireTLS: !secure,
     auth: user ? { user, pass } : undefined,
+    // GoDaddy's shared smtpout pool throttles bursts and resets connections —
+    // keep one gentle reused connection and fail fast so retries kick in.
+    pool: true,
+    maxConnections: 1,
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
   });
   return globalForMail.mailTransport;
 }
@@ -49,16 +55,36 @@ const TEAM = process.env.TEAM_EMAIL ?? "team@theadventuremafia.in";
 
 type Mail = { to: string; subject: string; html: string; text: string };
 
+// GoDaddy resets/throttles connections under load; these are transient and
+// worth retrying. Anything else (e.g. 535 auth) is a config error — don't retry.
+const RETRYABLE = new Set(["ECONNRESET", "ETIMEDOUT", "ECONNECTION", "ESOCKET", "ETIMEOUT"]);
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 async function send(mail: Mail): Promise<boolean> {
   const transport = getTransport();
   if (!transport) return false;
-  try {
-    await transport.sendMail({ from: FROM, ...mail });
-    return true;
-  } catch (err) {
-    console.error(`[email] failed to send "${mail.subject}" to ${mail.to}:`, err);
-    return false;
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await transport.sendMail({ from: FROM, ...mail });
+      return true;
+    } catch (err) {
+      const code = (err as { code?: string })?.code;
+      const retryable = !!code && RETRYABLE.has(code);
+      if (retryable && attempt < maxAttempts) {
+        const backoff = 500 * 2 ** (attempt - 1); // 500ms, 1s
+        console.warn(
+          `[email] transient ${code} sending "${mail.subject}" to ${mail.to} ` +
+            `(attempt ${attempt}/${maxAttempts}), retrying in ${backoff}ms`,
+        );
+        await sleep(backoff);
+        continue;
+      }
+      console.error(`[email] failed to send "${mail.subject}" to ${mail.to}:`, err);
+      return false;
+    }
   }
+  return false;
 }
 
 /** Booking: notify the team AND send a confirmation to the customer. */
