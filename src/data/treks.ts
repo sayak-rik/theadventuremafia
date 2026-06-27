@@ -45,7 +45,7 @@ export const TREKS: TrekContent[] = [
       "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80",
     ],
     overview:
-      "Starting from Pelling, this day trek climbs steadily through dense, ancient forest to Rani Dhunga — a sacred rock that doubles as a historic boundary marker and a Buddhist pilgrimage site. From the top you get panoramic views of the Kanchenjunga range, the Dentam valley, the Indo-Nepal border peaks and the Barsey Rhododendron Sanctuary. After a picnic lunch at the summit you descend to the centuries-old Sangacholing Monastery before walking back into Pelling. A short ride on the Pelling Gondola is included.",
+      "Starting from Pelling, this day trek climbs steadily through dense, ancient forest to Rani Dhunga — a sacred rock that doubles as a historic boundary marker and a Buddhist pilgrimage site. From the top you get panoramic views of the Kanchenjunga range, the Dentam valley, the Indo-Nepal border peaks and the Barsey Rhododendron Sanctuary. We carry light trekking snacks rather than a full meal — we strongly advise against heavy eating on the climb. After a short break at the summit you descend to the centuries-old Sangacholing Monastery before walking back into Pelling. A short ride on the Pelling Gondola is included.",
     highlights: [
       "Rani Dhunga — a sacred stone, historic boundary marker and pilgrimage site",
       "Panoramic Kanchenjunga range and Dentam valley vistas",
@@ -57,7 +57,7 @@ export const TREKS: TrekContent[] = [
     inclusions: [
       "Experienced local trek guide",
       "Pelling Gondola ride",
-      "Trekking snacks and a picnic lunch at the summit",
+      "Light trekking snacks (no heavy meal — heavy eating on the climb is strongly discouraged)",
       "Trekking bag (on loan)",
       "Water bottle (on loan)",
       "Gloves (on loan)",
@@ -65,7 +65,7 @@ export const TREKS: TrekContent[] = [
     itinerary: [
       { label: "Morning · Pelling", detail: "Meet your guide in Pelling and set off on foot into the forest trail." },
       { label: "~3 hrs · The ascent", detail: "A steady uphill climb through dense ancient forest, with birdlife and opening mountain views." },
-      { label: "Summit · Rani Dhunga", detail: "Reach the sacred rock for panoramic Kanchenjunga and Dentam valley views, then a picnic lunch." },
+      { label: "Summit · Rani Dhunga", detail: "Reach the sacred rock for panoramic Kanchenjunga and Dentam valley views, with a short break and light trekking snacks — we advise against heavy eating on the trek." },
       { label: "Descent · Sangacholing", detail: "A 45-minute descent to Sangacholing Monastery, one of Sikkim's oldest." },
       { label: "Afternoon · Pelling", detail: "Walk back into Pelling, with a ride on the Pelling Gondola to round off the day." },
     ],

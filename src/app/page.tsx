@@ -36,20 +36,11 @@ const FEATURES = [
 export default async function HomePage() {
   const testimonials = await getTestimonials();
 
-  // Aggregate rating from the published testimonials, for rich-result stars.
-  const ratingCount = testimonials.length;
-  const ratingValue = ratingCount
-    ? (testimonials.reduce((s, t) => s + t.rating, 0) / ratingCount).toFixed(1)
-    : undefined;
-
   return (
     <>
       <JsonLd
         data={[
-          touristTripLd({
-            stops: ROUTE_STOPS,
-            rating: ratingValue ? { value: ratingValue, count: ratingCount } : undefined,
-          }),
+          touristTripLd({ stops: ROUTE_STOPS }),
           faqLd(FAQS),
         ]}
       />

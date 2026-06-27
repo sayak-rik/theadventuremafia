@@ -37,7 +37,6 @@ export function websiteLd() {
 }
 
 export function touristTripLd(opts?: {
-  rating?: { value: string; count: number };
   stops?: readonly string[];
 }) {
   const data: Record<string, unknown> = {
@@ -75,15 +74,6 @@ export function touristTripLd(opts?: {
         position: i + 1,
         name,
       })),
-    };
-  }
-  if (opts?.rating) {
-    data.aggregateRating = {
-      "@type": "AggregateRating",
-      ratingValue: opts.rating.value,
-      reviewCount: String(opts.rating.count),
-      bestRating: "5",
-      worstRating: "1",
     };
   }
   return data;
