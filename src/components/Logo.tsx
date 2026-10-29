@@ -14,12 +14,12 @@ export function Logo({ size = 44 }: { size?: number }) {
         height={size}
         className="rounded-full"
       />
-      <span className="hidden flex-col leading-tight sm:flex">
+      <span className="hidden flex-col whitespace-nowrap leading-tight sm:flex">
         <span className="font-serif text-base font-bold tracking-wide text-cream">
           The Adventure Mafia
         </span>
         <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-green-300">
-          West Sikkim Expedition
+          Sikkim
         </span>
       </span>
     </span>

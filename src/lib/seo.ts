@@ -137,3 +137,43 @@ export function breadcrumbLd(items: { name: string; path: string }[]) {
     })),
   };
 }
+
+// --- Marketplace --------------------------------------------------------------
+import type { ListingDetailData } from "./listings/public-queries";
+
+/** Product + Offer for a rental or an activity session, with the operator as provider. */
+export function listingLd(d: ListingDetailData) {
+  const url = `${SITE.url}/companies/${d.companySlug}/${d.slug}`;
+  return {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: d.title,
+    description: d.description.slice(0, 300),
+    url,
+    image: d.images.map((i) => (i.url.startsWith("http") ? i.url : `${SITE.url}${i.url}`)),
+    category: d.categoryName,
+    brand: { "@type": "Brand", name: d.companyName },
+    offers: {
+      "@type": "Offer",
+      url,
+      priceCurrency: "INR",
+      price: d.unitPrice,
+      availability: "https://schema.org/InStock",
+      seller: {
+        "@type": "LocalBusiness",
+        name: d.company.name,
+        telephone: d.company.phone,
+        ...(d.company.address ? { address: { "@type": "PostalAddress", streetAddress: d.company.address, addressRegion: "Sikkim", addressCountry: "IN" } } : {}),
+        url: `${SITE.url}/companies/${d.company.slug}`,
+      },
+    },
+  };
+}
+
+export function itemListLd(items: { name: string; url: string }[]) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    itemListElement: items.map((it, i) => ({ "@type": "ListItem", position: i + 1, name: it.name, url: it.url.startsWith("http") ? it.url : `${SITE.url}${it.url}` })),
+  };
+}

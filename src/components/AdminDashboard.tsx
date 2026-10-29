@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatPretty } from "@/lib/dates";
+import { AdminNav } from "@/components/admin/AdminNav";
 
 export type AdminBooking = {
   id: number;
@@ -77,10 +78,7 @@ export function AdminDashboard({
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="flex gap-2 text-sm">
-            <span className="rounded-full bg-navy px-3 py-1.5 font-semibold text-cream">Bookings</span>
-            <a href="/admin/referrals" className="rounded-full px-3 py-1.5 font-semibold text-navy/50 hover:bg-cream">Referrals</a>
-          </div>
+          <AdminNav active="bookings" />
           <h1 className="mt-3 font-serif text-3xl font-bold text-navy">Bookings</h1>
           <p className="mt-1 text-sm text-navy/60">Confirm or cancel bookings. Cancelling releases the seat.</p>
         </div>

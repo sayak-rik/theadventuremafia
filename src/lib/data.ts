@@ -7,6 +7,7 @@ import { TREKS } from "@/data/treks";
 
 export type BikeModel = {
   id: number;
+  company_id: number | null;
   name: string;
   engine_cc: number;
   price_double: number;
@@ -24,6 +25,7 @@ export type Testimonial = {
 
 export type Trek = {
   id: number;
+  company_id: number | null;
   slug: string;
   name: string;
   price_per_person: number;
@@ -33,11 +35,11 @@ export type Trek = {
 
 // --- Seed fallbacks (mirror db/init/02-seed.sql) ---------------------------
 const SEED_BIKES: BikeModel[] = [
-  { id: 1, name: "Himalayan 450", engine_cc: 450, price_double: 45000, price_single: 55000, sort_order: 1 },
-  { id: 2, name: "Himalayan 411", engine_cc: 411, price_double: 43000, price_single: 53000, sort_order: 2 },
-  { id: 3, name: "Scram 411", engine_cc: 411, price_double: 41000, price_single: 51000, sort_order: 3 },
-  { id: 4, name: "Classic 350", engine_cc: 350, price_double: 39000, price_single: 49000, sort_order: 4 },
-  { id: 5, name: "Hunter 350", engine_cc: 350, price_double: 37000, price_single: 47000, sort_order: 5 },
+  { id: 1, company_id: null, name: "Himalayan 450", engine_cc: 450, price_double: 45000, price_single: 55000, sort_order: 1 },
+  { id: 2, company_id: null, name: "Himalayan 411", engine_cc: 411, price_double: 43000, price_single: 53000, sort_order: 2 },
+  { id: 3, company_id: null, name: "Scram 411", engine_cc: 411, price_double: 41000, price_single: 51000, sort_order: 3 },
+  { id: 4, company_id: null, name: "Classic 350", engine_cc: 350, price_double: 39000, price_single: 49000, sort_order: 4 },
+  { id: 5, company_id: null, name: "Hunter 350", engine_cc: 350, price_double: 37000, price_single: 47000, sort_order: 5 },
 ];
 
 const SEED_TESTIMONIALS: Testimonial[] = [
@@ -55,6 +57,7 @@ const SEED_TESTIMONIALS: Testimonial[] = [
 // availability have a single source of truth (mirrors db/init/02-seed.sql).
 const SEED_TREKS: Trek[] = TREKS.map((t, i) => ({
   id: i + 1,
+  company_id: null,
   slug: t.slug,
   name: t.name,
   price_per_person: t.pricePerPerson,
@@ -64,7 +67,7 @@ const SEED_TREKS: Trek[] = TREKS.map((t, i) => ({
 
 export async function getBikeModels(): Promise<BikeModel[]> {
   const rows = await query<BikeModel>(
-    `SELECT id, name, engine_cc, price_double, price_single, sort_order
+    `SELECT id, company_id, name, engine_cc, price_double, price_single, sort_order
        FROM bike_models WHERE is_active = TRUE ORDER BY sort_order ASC`,
   );
   return rows && rows.length ? rows : SEED_BIKES;
@@ -80,7 +83,7 @@ export async function getTestimonials(): Promise<Testimonial[]> {
 
 export async function getTreks(): Promise<Trek[]> {
   const rows = await query<Trek>(
-    `SELECT id, slug, name, price_per_person, taxi_fare_extra, sort_order
+    `SELECT id, company_id, slug, name, price_per_person, taxi_fare_extra, sort_order
        FROM treks WHERE is_active = TRUE ORDER BY sort_order ASC`,
   );
   return rows && rows.length ? rows : SEED_TREKS;

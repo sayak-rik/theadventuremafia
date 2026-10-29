@@ -4,7 +4,10 @@
 # Public surface is ONLY Caddy (80/443). app + db are internal to the Docker
 # network; Adminer is bound to localhost (reach it via an SSH tunnel).
 #
-# Requires in .env: DOMAIN, ACME_EMAIL, POSTGRES_*, SMTP_*, ADMIN_PASSWORD.
+# Requires in .env: DOMAIN, ACME_EMAIL, POSTGRES_*, SMTP_*, ADMIN_PASSWORD,
+# REWARDS_SECRET, OPERATOR_SESSION_SECRET, CRON_SECRET.
+# Optional: R2_* (Cloudflare R2 for operator photos; without it photos are kept
+# in the `uploads` volume).
 
 services:
   db:
@@ -23,6 +26,22 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  # One-shot job: applies db/migrations (tracked, idempotent) then exits.
+  # `app` waits for it, so a failed migration blocks the deploy with clear
+  # logs instead of putting the app in a restart loop.
+  #   docker compose run --rm migrate      (re-run manually any time; safe)
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: migrator
+    restart: "no"
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    depends_on:
+      db:
+        condition: service_healthy
 
   app:
     build:
@@ -43,9 +62,21 @@ services:
       MAIL_FROM: ${MAIL_FROM:-}
       TEAM_EMAIL: ${TEAM_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      REWARDS_SECRET: ${REWARDS_SECRET:-}
+      OPERATOR_SESSION_SECRET: ${OPERATOR_SESSION_SECRET:-}
+      CRON_SECRET: ${CRON_SECRET:-}
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
+      R2_BUCKET: ${R2_BUCKET:-}
+      R2_PUBLIC_URL: ${R2_PUBLIC_URL:-}
+    volumes:
+      - uploads:/data/uploads
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   caddy:
     image: caddy:2-alpine
@@ -76,5 +107,6 @@ services:
 
 volumes:
   db_data:
+  uploads:
   caddy_data:
   caddy_config:

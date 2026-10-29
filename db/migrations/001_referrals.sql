@@ -2,8 +2,14 @@
 -- Run once on the existing production database:
 --   docker compose exec -T db psql -U adventure -d adventuremafia < db/migrations/001_referrals.sql
 -- (Fresh installs get this automatically from db/init/01-schema.sql.)
+--
+-- Table was later renamed referral_users -> customer_users (migration 004).
+-- Renaming here first, before the CREATE TABLE below, means this file stays
+-- a safe no-op both against a database that still has the old name and one
+-- that was freshly installed with the new name already in place.
+ALTER TABLE IF EXISTS referral_users RENAME TO customer_users;
 
-CREATE TABLE IF NOT EXISTS referral_users (
+CREATE TABLE IF NOT EXISTS customer_users (
   id                    SERIAL PRIMARY KEY,
   email                 TEXT        NOT NULL UNIQUE,
   phone                 TEXT        NOT NULL,
@@ -20,12 +26,12 @@ CREATE TABLE IF NOT EXISTS referral_users (
   created_at            TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_referral_users_code ON referral_users(referral_code);
+CREATE INDEX IF NOT EXISTS idx_referral_users_code ON customer_users(referral_code);
 
 -- Ledger of every adv-cash movement (audit trail for the admin tab).
 CREATE TABLE IF NOT EXISTS adv_cash_ledger (
   id         SERIAL PRIMARY KEY,
-  user_id    INTEGER     REFERENCES referral_users(id) ON DELETE CASCADE,
+  user_id    INTEGER     REFERENCES customer_users(id) ON DELETE CASCADE,
   amount     INTEGER     NOT NULL,                 -- + earned, - spent
   reason     TEXT        NOT NULL,                 -- signup | referral | redeemed | admin
   booking_id INTEGER,
@@ -37,6 +43,6 @@ CREATE INDEX IF NOT EXISTS idx_adv_cash_ledger_user ON adv_cash_ledger(user_id, 
 
 -- Booking links to the referral that produced it.
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS referral_code     TEXT;
-ALTER TABLE bookings ADD COLUMN IF NOT EXISTS referred_by       INTEGER REFERENCES referral_users(id) ON DELETE SET NULL;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS referred_by       INTEGER REFERENCES customer_users(id) ON DELETE SET NULL;
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS adv_cash_discount  INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS referrer_rewarded  BOOLEAN NOT NULL DEFAULT FALSE;

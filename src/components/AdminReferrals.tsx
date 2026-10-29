@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AdminNav } from "@/components/admin/AdminNav";
 import { useRouter } from "next/navigation";
 import { formatINR } from "@/lib/rewards";
 
@@ -51,10 +52,7 @@ export function AdminReferrals({ users, query, dbConnected }: { users: RefRow[];
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="flex gap-2 text-sm">
-            <a href="/admin" className="rounded-full px-3 py-1.5 font-semibold text-navy/50 hover:bg-cream">Bookings</a>
-            <span className="rounded-full bg-navy px-3 py-1.5 font-semibold text-cream">Referrals</span>
-          </div>
+          <AdminNav active="referrals" />
           <h1 className="mt-3 font-serif text-3xl font-bold text-navy">Referral accounts</h1>
           <p className="mt-1 text-sm text-navy/60">Enable/disable codes, edit per-conversion reward, and transfer adv cash.</p>
         </div>

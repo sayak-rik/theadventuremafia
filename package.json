@@ -7,24 +7,42 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:email": "node --env-file=.env scripts/test-email.mjs"
+    "test:email": "node --env-file=.env scripts/test-email.mjs",
+    "db:migrate": "node --env-file=.env scripts/migrate.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:db": "bash scripts/test-db.sh",
+    "db:seed-demo": "ALLOW_DEMO_SEED=1 node --env-file=.env scripts/seed-demo.mjs"
   },
   "dependencies": {
+    "@radix-ui/react-dialog": "^1.3.1",
+    "@radix-ui/react-slot": "^1.5.0",
+    "aws4fetch": "^1.0.20",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "drizzle-orm": "^0.45.2",
+    "lucide-react": "^1.58.0",
     "motion": "^12.40.0",
     "next": "^15.3.0",
     "nodemailer": "^6.9.15",
     "pg": "^8.13.0",
+    "qrcode": "^1.5.4",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "sharp": "^0.35.5",
+    "tailwind-merge": "^3.7.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^22.0.0",
     "@types/nodemailer": "^6.4.16",
     "@types/pg": "^8.11.0",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "tailwindcss": "^4.0.0",
-    "typescript": "^5.6.0"
+    "typescript": "^5.6.0",
+    "vitest": "^5.0.5"
   }
 }

@@ -52,7 +52,7 @@ export async function POST(req: Request) {
       // Reward the referrer once, capped at the lifetime referral limit.
       if (booking.referred_by && !booking.referrer_rewarded) {
         const ru = await client.query<{ reward_per_conversion: number; referral_earned: number }>(
-          `SELECT reward_per_conversion, referral_earned FROM referral_users WHERE id = $1 FOR UPDATE`,
+          `SELECT reward_per_conversion, referral_earned FROM customer_users WHERE id = $1 FOR UPDATE`,
           [booking.referred_by],
         );
         const referrer = ru.rows[0];
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
           const reward = Math.min(referrer.reward_per_conversion, remaining);
           if (reward > 0) {
             await client.query(
-              `UPDATE referral_users SET adv_cash = adv_cash + $2, referral_earned = referral_earned + $2 WHERE id = $1`,
+              `UPDATE customer_users SET adv_cash = adv_cash + $2, referral_earned = referral_earned + $2 WHERE id = $1`,
               [booking.referred_by, reward],
             );
             await client.query(

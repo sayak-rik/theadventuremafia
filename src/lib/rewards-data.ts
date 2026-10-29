@@ -19,7 +19,7 @@ export async function findActiveByCode(code: string) {
   const pool = getPool();
   if (!pool) return null;
   const res = await pool.query<RewardUser>(
-    `SELECT * FROM referral_users WHERE upper(referral_code) = upper($1) AND is_active = TRUE AND email_verified = TRUE LIMIT 1`,
+    `SELECT * FROM customer_users WHERE upper(referral_code) = upper($1) AND is_active = TRUE AND email_verified = TRUE LIMIT 1`,
     [code],
   );
   return res.rows[0] ?? null;
@@ -28,7 +28,7 @@ export async function findActiveByCode(code: string) {
 export async function getUserById(id: number) {
   const pool = getPool();
   if (!pool) return null;
-  const res = await pool.query<RewardUser>(`SELECT * FROM referral_users WHERE id = $1`, [id]);
+  const res = await pool.query<RewardUser>(`SELECT * FROM customer_users WHERE id = $1`, [id]);
   return res.rows[0] ?? null;
 }
 
@@ -45,7 +45,7 @@ export async function creditAdvCash(
   try {
     await client.query("BEGIN");
     await client.query(
-      `UPDATE referral_users
+      `UPDATE customer_users
           SET adv_cash = GREATEST(0, adv_cash + $2)
               ${opts?.countAsReferral ? ", referral_earned = referral_earned + $2" : ""}
         WHERE id = $1`,

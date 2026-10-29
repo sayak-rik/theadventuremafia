@@ -1,11 +1,6 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Playfair_Display, Inter } from "next/font/google";
 import { SITE } from "@/data/site";
-import { Navbar } from "@/components/Navbar";
-import { Footer } from "@/components/Footer";
-import { ScrollProgress } from "@/components/ScrollProgress";
-import { JsonLd } from "@/components/JsonLd";
-import { organizationLd, websiteLd } from "@/lib/seo";
 import "./globals.css";
 
 // Distinctive serif for headings + clean sans for body, per brand guide.
@@ -43,7 +38,12 @@ export const metadata: Metadata = {
     description: SITE.description,
     images: ["/og.png"],
   },
-  alternates: { canonical: "/" },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#0e1a24",
 };
 
 export default function RootLayout({
@@ -51,21 +51,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${playfair.variable} ${inter.variable}`}>
-      <body className="flex min-h-screen flex-col">
-        <JsonLd data={[organizationLd(), websiteLd()]} />
-        <a
-          href="#main"
-          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-green focus:px-4 focus:py-2 focus:text-white"
-        >
-          Skip to content
-        </a>
-        <ScrollProgress />
-        <Navbar />
-        <main id="main" className="flex-1">
-          {children}
-        </main>
-        <Footer />
-      </body>
+      <body className="flex min-h-screen flex-col">{children}</body>
     </html>
   );
 }

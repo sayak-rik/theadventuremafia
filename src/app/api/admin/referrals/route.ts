@@ -15,7 +15,7 @@ export async function GET(req: Request) {
   const res = await pool.query(
     `SELECT id, email, phone, name, referral_code, adv_cash, referral_earned,
             reward_per_conversion, is_active, email_verified, created_at
-       FROM referral_users ${where}
+       FROM customer_users ${where}
       ORDER BY created_at DESC LIMIT 200`,
     params,
   );
@@ -33,10 +33,10 @@ export async function POST(req: Request) {
 
   try {
     if (action === "toggle") {
-      await pool.query(`UPDATE referral_users SET is_active = NOT is_active WHERE id = $1`, [userId]);
+      await pool.query(`UPDATE customer_users SET is_active = NOT is_active WHERE id = $1`, [userId]);
     } else if (action === "setReward") {
       const reward = Math.max(0, Math.round(Number(value) || 0));
-      await pool.query(`UPDATE referral_users SET reward_per_conversion = $2 WHERE id = $1`, [userId, reward]);
+      await pool.query(`UPDATE customer_users SET reward_per_conversion = $2 WHERE id = $1`, [userId, reward]);
     } else if (action === "adjust") {
       const amount = Math.round(Number(value) || 0);
       if (amount !== 0) await creditAdvCash(userId, amount, "admin", { note: "Admin adjustment" });

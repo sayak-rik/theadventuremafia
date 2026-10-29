@@ -1,4 +1,8 @@
-import { Pool } from "pg";
+import { Pool, types, type PoolClient } from "pg";
+
+// BIGSERIAL ids (listing_bookings) come back as strings by default. They'll never
+// approach 2^53, so hand them to JS as numbers.
+types.setTypeParser(20, (v) => Number(v));
 
 // A single shared pool per server process. Cached on globalThis so Next.js
 // dev hot-reload doesn't open a new pool on every change.
@@ -33,5 +37,28 @@ export async function query<T extends Record<string, unknown>>(
   } catch (err) {
     console.error("[db] query failed, falling back to seed data:", err);
     return null;
+  }
+}
+
+/** The shared pool, or throws — for marketplace code that has no seed-data fallback. */
+export function requirePool(): Pool {
+  const pool = getPool();
+  if (!pool) throw new Error("DATABASE_URL is not configured");
+  return pool;
+}
+
+/** Run `fn` inside a transaction (BEGIN/COMMIT, ROLLBACK on throw). */
+export async function withTx<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
+  const client = await requirePool().connect();
+  try {
+    await client.query("BEGIN");
+    const result = await fn(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw err;
+  } finally {
+    client.release();
   }
 }

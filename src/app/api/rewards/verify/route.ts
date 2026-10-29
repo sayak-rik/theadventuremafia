@@ -3,39 +3,48 @@ import { getPool } from "@/lib/db";
 import { SIGNUP_BONUS } from "@/lib/rewards";
 import { creditAdvCash } from "@/lib/rewards-data";
 import { REWARDS_COOKIE, sessionValue } from "@/lib/rewards-auth";
+import { otpMatches, checkOtpVerifyLimit } from "@/lib/otp";
+import { clientIp, sameOrigin } from "@/lib/http";
+import { resetRateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 // Verify the OTP, credit the signup bonus (once), and open a session.
 export async function POST(req: Request) {
+  if (!sameOrigin(req)) return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   const { email, otp } = await req.json().catch(() => ({}));
   if (!email || !otp) return NextResponse.json({ error: "Email and code are required." }, { status: 422 });
+
+  const normalizedEmail = String(email).trim().toLowerCase();
+  const limit = await checkOtpVerifyLimit("customer", normalizedEmail, clientIp(req));
+  if (!limit.ok) return tooManyRequests(limit.retryAfterSec, "Too many incorrect codes. Please wait and request a new code.");
 
   const pool = getPool();
   if (!pool) return NextResponse.json({ error: "Service unavailable." }, { status: 503 });
 
   const res = await pool.query<{ id: number; otp_code: string | null; otp_expires_at: string | null; signup_credited: boolean }>(
-    `SELECT id, otp_code, otp_expires_at, signup_credited FROM referral_users WHERE email = $1`,
-    [email.trim().toLowerCase()],
+    `SELECT id, otp_code, otp_expires_at, signup_credited FROM customer_users WHERE email = $1`,
+    [normalizedEmail],
   );
   const user = res.rows[0];
-  if (!user || !user.otp_code || user.otp_code !== String(otp).trim()) {
+  if (!user || !otpMatches(user.otp_code, "customer", normalizedEmail, String(otp))) {
     return NextResponse.json({ error: "Invalid verification code." }, { status: 401 });
   }
   if (user.otp_expires_at && new Date(user.otp_expires_at) < new Date()) {
     return NextResponse.json({ error: "This code has expired. Request a new one." }, { status: 401 });
   }
+  await resetRateLimit(`otp-verify:customer:${normalizedEmail}`);
 
   await pool.query(
-    `UPDATE referral_users SET email_verified = TRUE, otp_code = NULL, otp_expires_at = NULL WHERE id = $1`,
+    `UPDATE customer_users SET email_verified = TRUE, otp_code = NULL, otp_expires_at = NULL WHERE id = $1`,
     [user.id],
   );
 
   // Credit the signup bonus exactly once.
   if (!user.signup_credited) {
-    await pool.query(`UPDATE referral_users SET signup_credited = TRUE WHERE id = $1`, [user.id]);
+    await pool.query(`UPDATE customer_users SET signup_credited = TRUE WHERE id = $1`, [user.id]);
     await creditAdvCash(user.id, SIGNUP_BONUS, "signup", { note: "Signup bonus" });
   }
 
-  const out = await pool.query(`SELECT referral_code, adv_cash, referral_earned, password_hash FROM referral_users WHERE id = $1`, [user.id]);
+  const out = await pool.query(`SELECT referral_code, adv_cash, referral_earned, password_hash FROM customer_users WHERE id = $1`, [user.id]);
   const r = out.rows[0];
   const response = NextResponse.json({
     ok: true,

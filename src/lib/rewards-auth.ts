@@ -1,12 +1,16 @@
 import { cookies } from "next/headers";
 import crypto from "crypto";
+import { getSecret, safeEqual } from "./secrets";
+export { hashPassword, verifyPassword } from "./password";
 
 // Lightweight session for verified reward users: cookie holds "<userId>.<sig>"
-// where sig = HMAC(userId). No password — identity is proven via email OTP.
+// where sig = HMAC(userId). Identity is proven via email OTP (or password).
 export const REWARDS_COOKIE = "tam_rewards";
 
+// Previously this fell back to ADMIN_PASSWORD, so anyone who knew the admin
+// password could forge customer sessions. See getSecret() for the fallback.
 function secret(): string {
-  return process.env.REWARDS_SECRET || process.env.ADMIN_PASSWORD || "tam-rewards-dev-secret";
+  return getSecret("REWARDS_SECRET", "tam-rewards-dev-secret");
 }
 
 function sign(userId: number): string {
@@ -18,23 +22,6 @@ export function sessionValue(userId: number): string {
   return sign(userId);
 }
 
-// ---- Password hashing (scrypt, salt:hash hex) ----
-export function hashPassword(password: string): string {
-  const salt = crypto.randomBytes(16).toString("hex");
-  const hash = crypto.scryptSync(password, salt, 64).toString("hex");
-  return `${salt}:${hash}`;
-}
-
-export function verifyPassword(password: string, stored: string | null): boolean {
-  if (!stored) return false;
-  const [salt, hash] = stored.split(":");
-  if (!salt || !hash) return false;
-  const calc = crypto.scryptSync(password, salt, 64).toString("hex");
-  const a = Buffer.from(hash, "hex");
-  const b = Buffer.from(calc, "hex");
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
-}
-
 /** Returns the authenticated reward user's id, or null. */
 export async function getRewardsUserId(): Promise<number | null> {
   const jar = await cookies();
@@ -42,6 +29,6 @@ export async function getRewardsUserId(): Promise<number | null> {
   if (!raw) return null;
   const [idStr] = raw.split(".");
   const id = Number(idStr);
-  if (!id || sign(id) !== raw) return null;
+  if (!id || !safeEqual(sign(id), raw)) return null;
   return id;
 }

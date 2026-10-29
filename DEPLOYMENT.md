@@ -9,13 +9,14 @@ Free limits) and keeps your containerized setup unchanged in production.
 **You need:** an email address, a phone number + card for Oracle signup (not
 charged on Always Free), and access to your domain's DNS.
 
-What runs in production (from [`docker-compose.prod.yml`](docker-compose.prod.yml)):
+What runs in production (from [`docker-compose.yml`](docker-compose.yml)):
 
 | Container | Role                                   | Exposed to internet |
 | --------- | -------------------------------------- | ------------------- |
 | `caddy`   | TLS termination + reverse proxy        | Yes (80, 443)       |
 | `app`     | Next.js production server (port 3000)  | No (internal only)  |
 | `db`      | PostgreSQL 16 + auto schema/seed       | No (internal only)  |
+| `migrate` | One-shot job: applies `db/migrations`  | No (exits when done) |
 
 > Production drops MailHog and Adminer. Email goes through a real SMTP provider;
 > manage the DB over SSH when needed.
@@ -175,7 +176,7 @@ so booking/contact emails don't land in spam. Use a `MAIL_FROM` on your domain.
 
 On the server, in `~/theadventuremafia`:
 ```bash
-cp .env.prod.example .env.prod
+cp .env.example .env.prod
 nano .env.prod
 ```
 Fill in:
@@ -183,10 +184,19 @@ Fill in:
 - `ACME_EMAIL` = your email (Let's Encrypt notices)
 - `POSTGRES_PASSWORD` = a long random string
 - the `SMTP_*`, `MAIL_FROM`, `TEAM_EMAIL` values from Step 7
+- `REWARDS_SECRET`, `OPERATOR_SESSION_SECRET` = long random strings (e.g.
+  `openssl rand -hex 32`) — sign customer and company-operator session
+  cookies. Without these set, sessions still work but get invalidated on
+  every restart, since a random secret is generated per process as a fallback.
+- `CRON_SECRET` = another long random string. It protects the cleanup endpoint
+  that the crontab in Step 9 calls; with it unset, that endpoint answers 404.
+- `R2_*` (optional) — Cloudflare R2 credentials for operator photos. Leave them
+  blank to keep photos on the server in the `uploads` Docker volume (fine for a
+  dry launch; back that volume up too). See "Photos" in Step 9.
 
 Build and start the whole stack:
 ```bash
-docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+docker compose --env-file .env.prod up -d --build
 ```
 
 First boot:
@@ -195,8 +205,8 @@ First boot:
 
 Check it:
 ```bash
-docker compose -f docker-compose.prod.yml ps          # all "running"/"healthy"
-docker compose -f docker-compose.prod.yml logs -f caddy   # watch cert issuance
+docker compose ps          # all "running"/"healthy"
+docker compose logs -f caddy   # watch cert issuance
 ```
 
 Open **https://your-domain** — you should see the site on HTTPS. 🎉
@@ -210,56 +220,98 @@ Submit a test booking and confirm the team + customer emails arrive.
 ```bash
 cd ~/theadventuremafia
 git pull
-docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+docker compose --env-file .env.prod up -d --build
 ```
 
 **View logs:**
 ```bash
-docker compose -f docker-compose.prod.yml logs -f app
+docker compose logs -f app
 ```
 
-**Run a database migration:** the `db/init/*.sql` scripts run only once, on a
-**fresh** database volume. Files in `db/migrations/` must be applied by hand to
-an already-running database, in order. Pipe the file into `psql`:
+**Google Search Console.** Add your domain as a "Domain" property and verify it
+with the DNS TXT record Google shows you (no code change needed), then submit
+`https://your-domain/sitemap.xml`. The sitemap is built from the database: it
+lists only live listings from approved operators, so a listing appears in it
+once an admin publishes it.
+
+**Run the cleanup job (set this up once).** `POST /api/internal/sweep` marks
+payment windows that ran out as expired, deletes spent one-time codes and stale
+rate-limit counters, and removes guests' age and weight 90 days after a booking
+ends. It is safe to run as often as you like. Add it to the VM's crontab
+(`crontab -e`), using the `CRON_SECRET` from `.env.prod`:
 ```bash
-docker compose -f docker-compose.prod.yml exec -T db \
-  psql -U adventure -d adventuremafia < db/migrations/003_treks.sql
+*/10 * * * * cd /home/ubuntu/theadventuremafia && docker compose --env-file .env.prod exec -T app node -e "fetch('http://localhost:3000/api/internal/sweep',{method:'POST',headers:{'x-cron-secret':process.env.CRON_SECRET}}).then(r=>r.text()).then(console.log)" >> /tmp/tam-sweep.log 2>&1
 ```
-`003_treks.sql` adds the `treks` table (Rani Dhunga + Yuksom seed rows) and the
-`product_type` / `trek_id` columns plus the `'trek'` booking option. It is
-idempotent (`IF NOT EXISTS` / `ON CONFLICT`), so re-running it is safe.
-> The `ALTER TYPE booking_option ADD VALUE 'trek'` runs as its own
-> auto-committed statement (the file has no `BEGIN`), which is exactly what
-> Postgres requires for enum additions — piping the file through `psql` works.
+It runs inside the `app` container, so the secret never leaves the server and
+the endpoint is never exposed through Caddy. (Bookings still behave correctly
+if the job stops: availability ignores lapsed holds by itself — the job only
+tidies labels and data.)
+
+**Photos.** Operators upload photos from their dashboard; the server shrinks
+them (about 1200 px and 400 px WebP, location data removed). With `R2_*` set
+they go to Cloudflare R2 and are served from `R2_PUBLIC_URL`; otherwise they
+live in the `uploads` volume and are served from `/media/…`. Don't run
+`docker compose down -v` — that deletes the `uploads` volume along with the
+database.
+
+**Approving operators.** New operators sign up at `/partner/signup`, verify
+their email, and wait. Sign in at `/admin`, open **Operators**, call or visit
+them, tick the verification checklist, then **Approve**. Their listings come to
+**Listings** for review (unless you mark the operator as trusted). Nothing an
+operator creates is public before that.
+
+**Run a database migration:** the `db/init/*.sql` scripts run only once, on a
+**fresh** database volume. Files in `db/migrations/` need to be applied to an
+already-running database — this is now tracked (each file runs at most once,
+recorded in a `drizzle.__drizzle_migrations` table) instead of applied by hand:
+```bash
+docker compose --env-file .env.prod run --rm migrate
+```
+`docker compose up -d --build` already runs the `migrate` job first and starts
+the app only if it succeeds; the command above just re-runs it by hand. It is
+safe to run after every deploy, whether or not there are new migration
+files — already-applied ones are skipped. All migration files are still plain
+hand-written SQL in `db/migrations/`, written idempotently (`IF NOT EXISTS` /
+`ON CONFLICT`) so re-running the whole set is always safe. To add a new one:
+drop a `db/migrations/00N_name.sql` file and append an entry to
+`db/migrations/meta/_journal.json` (a `when` greater than the previous entry's,
+`tag` = the filename without `.sql`).
 
 Verify it applied:
 ```bash
-docker compose -f docker-compose.prod.yml exec db \
+docker compose exec db \
   psql -U adventure -d adventuremafia -c "SELECT slug, price_per_person FROM treks ORDER BY sort_order;"
 ```
 
-**Back up the database:**
+**Back up the database.** There is a ready script that writes a compressed
+dump into `backups/`, deletes dumps older than 14 days, and also copies the
+dump to R2 if `R2_*` and the `aws` CLI are available:
 ```bash
-docker compose -f docker-compose.prod.yml exec db \
+bash scripts/backup-db.sh
+```
+Run it nightly from the crontab (`0 2 * * * cd /home/ubuntu/theadventuremafia && bash scripts/backup-db.sh`)
+and copy the files off the VM now and then. Or by hand:
+```bash
+docker compose exec db \
   pg_dump -U adventure adventuremafia > backup_$(date +%F).sql
 ```
 
 **Restore a backup:**
 ```bash
-cat backup_2026-06-15.sql | docker compose -f docker-compose.prod.yml exec -T db \
+cat backup_2026-06-15.sql | docker compose exec -T db \
   psql -U adventure -d adventuremafia
 ```
 
 **Inspect bookings quickly:**
 ```bash
-docker compose -f docker-compose.prod.yml exec db \
+docker compose exec db \
   psql -U adventure -d adventuremafia -c "SELECT id,name,email,trip_date FROM bookings ORDER BY created_at DESC LIMIT 20;"
 ```
 
 **Stop / restart the stack:**
 ```bash
-docker compose -f docker-compose.prod.yml down       # stop (keeps data volumes)
-docker compose -f docker-compose.prod.yml up -d       # start again
+docker compose down       # stop (keeps data volumes)
+docker compose up -d       # start again
 ```
 
 **Auto-restart on reboot:** already handled — every service uses
@@ -280,7 +332,7 @@ sudo dpkg-reconfigure --priority=low unattended-upgrades
 | Caddy can't get a certificate | Confirm `dig +short your-domain` returns the VM IP, and ports 80/443 are open. Watch `logs -f caddy`. |
 | Emails not arriving | Check `logs -f app` for `[email]` lines; verify SMTP creds and that your domain's SPF/DKIM are set at the provider. |
 | ARM shape "out of capacity" | Retry later, or temporarily use the AMD `E2.1.Micro` Always Free shape. |
-| Postgres data reset unexpectedly | Don't run `down -v` — the `-v` flag deletes the `db_data` volume. |
+| Postgres data reset unexpectedly | Don't run `down -v` — the `-v` flag deletes the `db_data` (and `uploads`) volumes. |
 
 ---
 

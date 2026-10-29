@@ -101,6 +101,11 @@ export async function POST(req: Request) {
   // `seats` = people on the booking (2 for a two-up/pillion bike). Charge per person.
   const total = fare.amount * seats;
 
+  // Which company this booking belongs to — derived from the product being
+  // booked (the bike/cab fleet or the trek), not hardcoded, so this keeps
+  // working unchanged once other companies' products flow through here too.
+  const companyId = productType === "trek" ? trek?.company_id ?? null : bikes[0]?.company_id ?? null;
+
   // The currently signed-in reward user (if any), used to block self-referral
   // and to apply their own adv-cash balance.
   const signedInUserId = await getRewardsUserId();
@@ -154,7 +159,7 @@ export async function POST(req: Request) {
   // No DB configured (e.g. running the UI standalone) — accept the lead anyway
   // so the form flow can be demoed. Wire DATABASE_URL to persist for real.
   if (!pool) {
-    console.warn("[bookings] DATABASE_URL not set — booking not persisted:", body.email);
+    console.warn("[bookings] DATABASE_URL not set — booking not persisted.");
     await sendBookingEmails(emailData);
     return NextResponse.json({ ok: true, persisted: false });
   }
@@ -169,8 +174,8 @@ export async function POST(req: Request) {
     if (productType === "expedition") {
       // Ensure a trip_date row exists and lock it so capacity checks are atomic.
       await client.query(
-        `INSERT INTO trip_dates (depart_on) VALUES ($1) ON CONFLICT (depart_on) DO NOTHING`,
-        [body.tripDate],
+        `INSERT INTO trip_dates (company_id, depart_on) VALUES ($1, $2) ON CONFLICT (depart_on) DO NOTHING`,
+        [companyId, body.tripDate],
       );
       const tripRes = await client.query<{
         id: number;
@@ -226,8 +231,8 @@ export async function POST(req: Request) {
     const ins = await client.query<{ id: number }>(
       `INSERT INTO bookings
          (trip_id, product_type, option, bike_model_id, trek_id, rider, residence, name, email, phone, trip_date, seats, message,
-          referral_code, referred_by, adv_cash_discount)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+          referral_code, referred_by, adv_cash_discount, company_id, total_amount, currency)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
        RETURNING id`,
       [
         tripId,
@@ -246,19 +251,22 @@ export async function POST(req: Request) {
         referralCode,
         referredBy,
         advCashDiscount,
+        companyId,
+        total,
+        fare.currency,
       ],
     );
 
     // Apply the signed-in user's own adv cash (locked, never over-spending).
     if (rewardUserId) {
       const ures = await client.query<{ adv_cash: number }>(
-        `SELECT adv_cash FROM referral_users WHERE id = $1 FOR UPDATE`,
+        `SELECT adv_cash FROM customer_users WHERE id = $1 FOR UPDATE`,
         [rewardUserId],
       );
       const balance = ures.rows[0]?.adv_cash ?? 0;
       walletApplied = Math.max(0, Math.min(balance, total - advCashDiscount));
       if (walletApplied > 0) {
-        await client.query(`UPDATE referral_users SET adv_cash = adv_cash - $2 WHERE id = $1`, [rewardUserId, walletApplied]);
+        await client.query(`UPDATE customer_users SET adv_cash = adv_cash - $2 WHERE id = $1`, [rewardUserId, walletApplied]);
         await client.query(
           `INSERT INTO adv_cash_ledger (user_id, amount, reason, booking_id, note) VALUES ($1,$2,'redeemed',$3,$4)`,
           [rewardUserId, -walletApplied, ins.rows[0].id, `Applied to booking #${ins.rows[0].id}`],

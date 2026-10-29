@@ -53,16 +53,21 @@ function getTransport(): Transporter | null {
 const FROM = process.env.MAIL_FROM ?? "The Adventure Mafia <rides@theadventuremafia.in>";
 const TEAM = process.env.TEAM_EMAIL ?? "team@theadventuremafia.in";
 
-type Mail = { to: string; subject: string; html: string; text: string };
+export type Mail = { to: string; subject: string; html: string; text: string; replyTo?: string };
 
 // GoDaddy resets/throttles connections under load; these are transient and
 // worth retrying. Anything else (e.g. 535 auth) is a config error — don't retry.
 const RETRYABLE = new Set(["ECONNRESET", "ETIMEDOUT", "ECONNECTION", "ESOCKET", "ETIMEOUT"]);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function send(mail: Mail): Promise<boolean> {
+/** Send one email. Never throws — returns false on failure (logged). */
+export async function send(mail: Mail): Promise<boolean> {
   const transport = getTransport();
-  if (!transport) return false;
+  if (!transport) {
+    // Dev convenience: with no SMTP configured, show the mail (e.g. OTP codes) in the server log.
+    if (process.env.NODE_ENV !== "production") console.log(`[email:dev] to=${mail.to} subject="${mail.subject}"\n${mail.text}\n`);
+    return false;
+  }
   const maxAttempts = 3;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
@@ -96,6 +101,9 @@ export async function sendBookingEmails(data: BookingEmailData): Promise<void> {
     send({ to: data.email, ...customer }),
   ]);
 }
+
+/** Where operator/admin alerts and legacy booking mail go. */
+export const TEAM_EMAIL = TEAM;
 
 /** Send a rewards verification OTP. Returns whether it was actually sent. */
 export async function sendOtpEmail(to: string, otp: string): Promise<boolean> {

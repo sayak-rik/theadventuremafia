@@ -2,12 +2,13 @@
 /.next
 /out
 /build
-scripts
 .DS_Store
 *.pem
+.env
 .env.local
 .env.prod
 .env*.local
+!.env.example
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -18,3 +19,5 @@ next-env.d.ts.bak
 *.pub
 brochure
 .venv
+/backups
+/.uploads

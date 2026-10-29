@@ -8,6 +8,17 @@ RUN apk add --no-cache libc6-compat
 COPY package.json package-lock.json* ./
 RUN npm ci
 
+# ---- Migrator (one-shot job: applies db/migrations, then exits) ----
+# Reuses the locked dependency tree from the deps stage (already built and
+# cached for the app image), so it needs no extra install and adds nothing to
+# the runner image. Run via the `migrate` service in docker-compose.yml.
+FROM deps AS migrator
+ENV NODE_ENV=production
+COPY scripts/migrate.mjs ./scripts/migrate.mjs
+COPY db/migrations ./db/migrations
+USER node
+CMD ["node", "scripts/migrate.mjs"]
+
 # ---- Builder ----
 FROM node:22-alpine AS builder
 WORKDIR /app
@@ -32,6 +43,11 @@ RUN addgroup --system --gid 1001 nodejs \
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Operator photos land here when Cloudflare R2 isn't configured. Mount a volume
+# at this path (docker-compose.yml does) so uploads survive redeploys.
+RUN mkdir -p /data/uploads && chown nextjs:nodejs /data/uploads
+ENV UPLOAD_DIR=/data/uploads
 
 USER nextjs
 EXPOSE 3000
